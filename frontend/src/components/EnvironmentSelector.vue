@@ -68,7 +68,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { GetEnvironments, SetActiveEnvironment, AddEnvironment, UpdateEnvironment, DeleteEnvironment } from '../../bindings/changeme/environmentservice'
+import { GetEnvironments, SetActiveEnvironment, AddEnvironment, UpdateEnvironment, DeleteEnvironment } from '../../bindings/captain-api/environmentservice'
 
 const environments = ref([])
 const selectedEnvironment = ref('')

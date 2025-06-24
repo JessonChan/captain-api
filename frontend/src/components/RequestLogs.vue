@@ -40,7 +40,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { HTTPService } from '../../bindings/changeme'
+import { HTTPService } from '../../bindings/captain-api'
 
 const emit = defineEmits(['load-request'])
 

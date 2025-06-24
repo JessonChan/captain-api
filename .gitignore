@@ -88,7 +88,7 @@ captain-api.exe
 *.zip
 
 # Wails generated bindings (keep the directory structure but ignore generated files)
-frontend/bindings/changeme/*.js
+frontend/bindings/captain-api/*.js
 frontend/bindings/time/*.js
-!frontend/bindings/changeme/
+!frontend/bindings/captain-api/
 !frontend/bindings/time/

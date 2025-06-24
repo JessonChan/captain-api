@@ -99,7 +99,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { HTTPService, CollectionService } from '../../bindings/changeme'
+import { HTTPService, CollectionService } from '../../bindings/captain-api'
 
 const emit = defineEmits(['response-received'])
 

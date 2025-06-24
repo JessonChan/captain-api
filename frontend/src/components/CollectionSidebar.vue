@@ -332,7 +332,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { CollectionService } from '../../bindings/changeme'
+import { CollectionService } from '../../bindings/captain-api'
 import ConfirmDialog from './ConfirmDialog.vue'
 import RequestLogs from './RequestLogs.vue'
 

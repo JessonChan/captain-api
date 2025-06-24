@@ -78,7 +78,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { HTTPService } from '../../bindings/changeme'
+import { HTTPService } from '../../bindings/captain-api'
 
 const props = defineProps({
   response: {

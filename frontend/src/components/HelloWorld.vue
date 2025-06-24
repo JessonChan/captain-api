@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import {GreetService} from "../../bindings/changeme";
+import {GreetService} from "../../bindings/captain-api";
 import {Events} from "@wailsio/runtime";
 
 const name = ref('')
@@ -32,18 +32,20 @@ defineProps({
 </script>
 
 <template>
-  <h1>{{ msg }}</h1>
+  <div>
+    <h1>{{ msg }}</h1>
 
-  <div class="result">{{ result }}</div>
-  <div class="card">
-    <div class="input-box">
-      <input class="input" v-model="name" type="text" autocomplete="off"/>
-      <button class="btn" @click="doGreet">Greet</button>
+    <div class="result">{{ result }}</div>
+    <div class="card">
+      <div class="input-box">
+        <input class="input" v-model="name" type="text" autocomplete="off"/>
+        <button class="btn" @click="doGreet">Greet</button>
+      </div>
     </div>
-  </div>
 
-  <div class="footer">
-    <div><p>Click on the Wails logo to learn more</p></div>
-    <div><p>{{ time }}</p></div>
+    <div class="footer">
+      <div><p>Click on the Wails logo to learn more</p></div>
+      <div><p>{{ time }}</p></div>
+    </div>
   </div>
 </template>

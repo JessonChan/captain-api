@@ -1,4 +1,4 @@
-module changeme
+module captain-api
 
 go 1.22.4
 
