@@ -31,11 +31,11 @@ const handleRequestSaved = () => {
     <header class="app-header">
       <div class="header-content">
         <div class="logo-section">
-          <img src="/wails.png" class="app-logo" alt="Captain API" />
+          <img src="/logo.png" class="app-logo" alt="Captain API" />
           <h1 class="app-title">Captain API</h1>
         </div>
         <div class="header-subtitle">
-          A Postman-like API client built with Wails + Vue3
+          A Postman-like API client built with Wails3 + Vue
         </div>
         <div class="environment-container">
           <EnvironmentSelector />
@@ -124,6 +124,7 @@ body {
 .app-logo {
   width: 40px;
   height: 40px;
+  border-radius: 10px;
 }
 
 .app-title {
