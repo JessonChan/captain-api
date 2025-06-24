@@ -17,11 +17,13 @@
           Logs
         </button>
       </div>
-      <div v-if="currentView === 'collections'" class="header-actions">
+      <div  class="header-actions">
         <button 
           @click="showNewCollectionModal = true" 
           class="new-collection-btn"
           title="Create new collection"
+          :disabled="currentView === 'logs'"
+          :class="['new-collection-btn', { active: currentView === 'collections' }]"
         >
           <span class="btn-icon">+</span>
           <span class="btn-text">New</span>
@@ -763,6 +765,21 @@ defineExpose({
   background: #0056b3;
   transform: translateY(-1px);
   box-shadow: 0 2px 6px rgba(0, 123, 255, 0.4);
+}
+
+.new-collection-btn:disabled {
+  background: #6c757d;
+  color: #adb5bd;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0;
+}
+
+.new-collection-btn:disabled:hover {
+  background: #6c757d;
+  transform: none;
+  box-shadow: none;
 }
 
 .btn-icon {
