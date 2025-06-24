@@ -1,59 +1,266 @@
-# Welcome to Your New Wails3 Project!
+# Captain API - Postman-like Client
 
-Congratulations on generating your Wails3 application! This README will guide you through the next steps to get your project up and running.
+A modern API testing client built with Wails (Go + Vue3) that provides a Postman-like interface for testing HTTP APIs.
+
+## Features
+
+### 🚀 Core Features
+- **HTTP Request Builder**: Support for GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS methods
+- **Request Management**: Save, organize, and reuse requests in collections
+- **Response Viewer**: Beautiful response display with syntax highlighting
+- **Headers Management**: Easy-to-use interface for managing request headers
+- **Body Support**: JSON, text, and raw body types
+- **Collections**: Organize requests into collections for better management
+- **Persistent Storage**: Requests are saved locally for future use
+
+### 🎨 UI Features
+- **Modern Interface**: Clean, responsive design inspired by Postman
+- **Tabbed Interface**: Separate tabs for headers, body, and response
+- **Real-time Response**: Live response display with status codes, timing, and size
+- **JSON Formatting**: Automatic JSON formatting and validation
+- **Copy to Clipboard**: Easy copying of response data
 
 ## Getting Started
 
-1. Navigate to your project directory in the terminal.
+### Prerequisites
+- Go 1.22+ 
+- Node.js 18+
+- Bun (package manager)
+- Wails v3
 
-2. To run your application in development mode, use the following command:
+### Installation
 
+1. **Install Wails3** (if not already installed):
+   ```bash
+   go install github.com/wailsapp/wails/v3/cmd/wails3@latest
    ```
-   wails3 dev
+
+2. **Clone the repository** (if not already done):
+   ```bash
+   git clone <your-repo-url>
+   cd captain-api
    ```
 
-   This will start your application and enable hot-reloading for both frontend and backend changes.
-
-3. To build your application for production, use:
-
-   ```
+3. **Install dependencies and build**:
+   ```bash
+   # This will automatically install frontend dependencies, 
+   # generate bindings, and build the application
    wails3 build
    ```
 
-   This will create a production-ready executable in the `build` directory.
-
-## Exploring Wails3 Features
-
-Now that you have your project set up, it's time to explore the features that Wails3 offers:
-
-1. **Check out the examples**: The best way to learn is by example. Visit the `examples` directory in the `v3/examples` directory to see various sample applications.
-
-2. **Run an example**: To run any of the examples, navigate to the example's directory and use:
-
-   ```
-   go run .
+   Or for development with auto-reload:
+   ```bash
+   wails3 dev
    ```
 
-   Note: Some examples may be under development during the alpha phase.
+### Development
 
-3. **Explore the documentation**: Visit the [Wails3 documentation](https://v3alpha.wails.io/) for in-depth guides and API references.
+To run the application in development mode with hot reload:
 
-4. **Join the community**: Have questions or want to share your progress? Join the [Wails Discord](https://discord.gg/JDdSxwjhGf) or visit the [Wails discussions on GitHub](https://github.com/wailsapp/wails/discussions).
+```bash
+wails3 dev
+```
+
+This will start the application with:
+- Hot reload for frontend changes
+- Automatic Go code recompilation
+- Debug console access
+- Available at http://localhost:9245/
+
+### Production Build
+
+To create a production build:
+
+```bash
+wails3 build
+```
+
+The built application will be available in the `build/bin/` directory.
+
+### Generate Bindings
+
+If you modify Go services and need to regenerate frontend bindings:
+
+```bash
+wails3 generate bindings
+```
+
+## Usage Guide
+
+### Making Your First Request
+
+1. **Start the application**:
+   ```bash
+   # For development
+   wails3 dev
+   
+   # Or run the built application
+   ./build/bin/captain-api
+   ```
+
+2. **Build a request**:
+   - Select HTTP method (GET, POST, etc.)
+   - Enter the URL (e.g., `https://jsonplaceholder.typicode.com/posts/1`)
+   - Add headers if needed (Content-Type, Authorization, etc.)
+   - Add request body for POST/PUT requests
+
+3. **Send the request**:
+   - Click the "Send" button
+   - View the response in the response panel
+
+4. **Save the request**:
+   - Enter a name for your request
+   - Click "Save Request" to add it to your collection
+
+### Managing Collections
+
+1. **Create a new collection**:
+   - Click the "+" button in the Collections sidebar
+   - Enter collection name and description
+   - Click "Create"
+
+2. **Load saved requests**:
+   - Expand a collection in the sidebar
+   - Click on any saved request to load it
+   - The request will populate in the request builder
+
+3. **Delete requests**:
+   - Hover over a request in the sidebar
+   - Click the "×" button to delete
+
+### Response Analysis
+
+The response viewer provides:
+- **Status Code**: Color-coded status (green for 2xx, red for 4xx/5xx)
+- **Response Time**: Request duration in milliseconds
+- **Response Size**: Size of the response body
+- **Headers Tab**: All response headers
+- **Body Tab**: Formatted response body with JSON syntax highlighting
+- **Raw Tab**: Complete raw HTTP response
 
 ## Project Structure
 
-Take a moment to familiarize yourself with your project structure:
+```
+captain-api/
+├── main.go                    # Application entry point
+├── httpservice.go             # HTTP client service
+├── collectionservice.go       # Collection management service
+├── greetservice.go           # Example service (can be removed)
+├── frontend/
+│   ├── src/
+│   │   ├── App.vue           # Main application component
+│   │   └── components/
+│   │       ├── RequestBuilder.vue    # Request building interface
+│   │       ├── ResponseViewer.vue    # Response display
+│   │       └── CollectionSidebar.vue # Collections management
+│   ├── bindings/             # Auto-generated Go-JS bindings
+│   └── dist/                 # Built frontend assets
+├── build/                    # Build configuration
+└── bin/                      # Built executables
+```
 
-- `frontend/`: Contains your frontend code (HTML, CSS, JavaScript/TypeScript)
-- `main.go`: The entry point of your Go backend
-- `app.go`: Define your application structure and methods here
-- `wails.json`: Configuration file for your Wails project
+## API Services
 
-## Next Steps
+### HTTPService
+- `SendRequest(request)`: Send HTTP request and return response
+- `FormatJSON(jsonString)`: Format JSON for better readability
+- `ValidateURL(url)`: Validate URL format
+- `GetSupportedMethods()`: Get list of supported HTTP methods
 
-1. Modify the frontend in the `frontend/` directory to create your desired UI.
-2. Add backend functionality in `main.go`.
-3. Use `wails3 dev` to see your changes in real-time.
-4. When ready, build your application with `wails3 build`.
+### CollectionService
+- `SaveRequest(collectionID, request)`: Save request to collection
+- `GetCollection(collectionID)`: Retrieve collection by ID
+- `GetAllCollections()`: Get all collections
+- `DeleteRequest(collectionID, requestID)`: Delete request from collection
+- `CreateCollection(name, description)`: Create new collection
 
-Happy coding with Wails3! If you encounter any issues or have questions, don't hesitate to consult the documentation or reach out to the Wails community.
+## Data Storage
+
+Collections and requests are stored locally in:
+- **macOS**: `~/.captain-api/collections/`
+- **Windows**: `%USERPROFILE%\.captain-api\collections\`
+- **Linux**: `~/.captain-api/collections/`
+
+Each collection is stored as a JSON file with the collection ID as the filename.
+
+## Customization
+
+### Adding New Features
+
+1. **Backend (Go)**:
+   - Add new methods to existing services
+   - Create new services in separate files
+   - Register services in `main.go`
+
+2. **Frontend (Vue3)**:
+   - Create new components in `frontend/src/components/`
+   - Add new views or modify existing ones
+   - Use the auto-generated bindings to call Go functions
+
+3. **Regenerate bindings** after Go changes:
+   ```bash
+   task darwin:common:generate:bindings
+   ```
+
+### Styling
+
+The application uses:
+- **CSS Variables**: For consistent theming
+- **Responsive Design**: Mobile-friendly layout
+- **Modern CSS**: Flexbox, Grid, and CSS3 features
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Build Errors**:
+   - Ensure all dependencies are installed
+   - Run `go mod tidy` to resolve Go dependencies
+   - Run `bun install` in the frontend directory
+
+2. **Binding Errors**:
+   - Regenerate bindings: `task darwin:common:generate:bindings`
+   - Ensure service methods are exported (capitalized)
+
+3. **CORS Issues**:
+   - The application runs as a desktop app, so CORS shouldn't be an issue
+   - If testing local APIs, ensure they accept requests from the app
+
+4. **Request Failures**:
+   - Check URL format (include http:// or https://)
+   - Verify network connectivity
+   - Check if the target API is accessible
+
+### Debug Mode
+
+Run in development mode for debugging:
+```bash
+task dev
+```
+
+This provides:
+- Browser developer tools access
+- Console logging
+- Hot reload for faster development
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Built with [Wails](https://wails.io/) - Go + Web frontend framework
+- UI inspired by [Postman](https://www.postman.com/)
+- Icons and styling inspired by modern API tools
+
+---
+
+**Happy API Testing! 🚀**
