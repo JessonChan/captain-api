@@ -17,9 +17,16 @@ const handleResponseReceived = async (responseData) => {
   }
 }
 
-const handleLoadRequest = (requestData) => {
+const handleLoadRequest = (logData) => {
   if (requestBuilderRef.value) {
+    // Handle both old format (direct request) and new format (with request and response)
+    const requestData = logData.request || logData
     requestBuilderRef.value.loadRequest(requestData)
+    
+    // If response data is available, set it
+    if (logData.response) {
+      response.value = logData.response
+    }
   }
 }
 

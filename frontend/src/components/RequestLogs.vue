@@ -85,14 +85,15 @@ const clearLogs = async () => {
 }
 
 const loadLogRequest = (log) => {
-  // Convert log to request format and emit
+  // Convert log to request format and emit complete log data
   const request = {
     method: log.request.method,
     url: log.request.url,
     headers: log.request.headers,
     body: log.request.body
   }
-  emit('load-request', request)
+  // Emit both request and response data
+  emit('load-request', { request, response: log.response })
 }
 
 const getStatusClass = (status) => {

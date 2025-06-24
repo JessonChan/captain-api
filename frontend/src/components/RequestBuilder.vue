@@ -290,11 +290,12 @@ const saveRequest = async () => {
 
 // Load request from props
 const loadRequest = (requestData) => {
+  // Set basic request data first (without body)
   request.value = {
     method: requestData.method || 'GET',
     url: requestData.url || '',
     headers: requestData.headers || {},
-    body: requestData.body || ''
+    body: ''
   }
 
   // Convert headers object to list
@@ -303,10 +304,11 @@ const loadRequest = (requestData) => {
     headersList.value = [{ key: '', value: '' }]
   }
 
-  // Set body type
-  if (request.value.body) {
+  // Set body type first to avoid watcher conflicts
+  const bodyContent = requestData.body || ''
+  if (bodyContent) {
     try {
-      JSON.parse(request.value.body)
+      JSON.parse(bodyContent)
       bodyType.value = 'json'
     } catch {
       bodyType.value = 'text'
@@ -314,6 +316,9 @@ const loadRequest = (requestData) => {
   } else {
     bodyType.value = 'none'
   }
+
+  // Set body content after body type is set
+  request.value.body = bodyContent
 }
 
 defineExpose({ loadRequest })
