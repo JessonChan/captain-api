@@ -46,6 +46,28 @@ type HTTPResponse struct {
 func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (*HTTPResponse, error) {
 	start := time.Now()
 
+	// Validate and clean JSON body if content-type is JSON
+	if req.Body != "" {
+		contentType := req.Headers["Content-Type"]
+		if contentType == "" {
+			contentType = req.Headers["content-type"]
+		}
+		
+		if strings.Contains(strings.ToLower(contentType), "application/json") {
+			// Validate JSON format
+			var jsonTest interface{}
+			if err := json.Unmarshal([]byte(req.Body), &jsonTest); err != nil {
+				return nil, fmt.Errorf("invalid JSON body: %w", err)
+			}
+			// Re-marshal to ensure clean JSON
+			cleanJSON, err := json.Marshal(jsonTest)
+			if err != nil {
+				return nil, fmt.Errorf("failed to clean JSON: %w", err)
+			}
+			req.Body = string(cleanJSON)
+		}
+	}
+
 	// Create HTTP request
 	var bodyReader io.Reader
 	if req.Body != "" {

@@ -65,13 +65,21 @@
             <input type="radio" v-model="bodyType" value="text" /> Text
           </label>
         </div>
-        <textarea 
-          v-if="bodyType !== 'none'"
-          v-model="request.body"
-          placeholder="Enter request body"
-          class="body-textarea"
-          rows="10"
-        ></textarea>
+        <div v-if="bodyType !== 'none'" class="body-input-container">
+          <div v-if="bodyType === 'json'" class="json-controls">
+            <button @click="formatJSON" class="format-btn" type="button">Format JSON</button>
+            <span v-if="jsonValidationMessage" :class="['validation-message', jsonValidationClass]">
+              {{ jsonValidationMessage }}
+            </span>
+          </div>
+          <textarea 
+            v-model="request.body"
+            :placeholder="bodyType === 'json' ? 'Enter JSON body' : 'Enter request body'"
+            :class="['body-textarea', { 'json-invalid': bodyType === 'json' && !isValidJSON }]"
+            rows="10"
+            @input="onBodyInput"
+          ></textarea>
+        </div>
       </div>
     </div>
 
@@ -107,6 +115,9 @@ const tabs = ref(['Headers', 'Body'])
 const loading = ref(false)
 const bodyType = ref('none')
 const requestName = ref('')
+const isValidJSON = ref(true)
+const jsonValidationMessage = ref('')
+const jsonValidationClass = ref('')
 
 // Headers management
 const headersList = ref([{ key: '', value: '' }])
@@ -134,18 +145,97 @@ const headersObject = computed(() => {
 
 // Watch body type changes
 watch(bodyType, (newType) => {
-  if (newType === 'json' && !request.value.body) {
-    request.value.body = '{\n  \n}'
+  if (newType === 'json') {
+    if (!request.value.body) {
+      request.value.body = '{\n  \n}'
+    }
+    // Auto-set Content-Type header for JSON
+    const hasContentType = headersList.value.some(h => 
+      h.key.toLowerCase() === 'content-type'
+    )
+    if (!hasContentType) {
+      headersList.value.push({ key: 'Content-Type', value: 'application/json' })
+    }
   } else if (newType === 'none') {
     request.value.body = ''
+    // Remove Content-Type header if it was auto-added
+    const index = headersList.value.findIndex(h => 
+      h.key === 'Content-Type' && h.value === 'application/json'
+    )
+    if (index !== -1) {
+      headersList.value.splice(index, 1)
+    }
   }
 })
+
+// Validate JSON format
+const validateJSON = (jsonString) => {
+  try {
+    JSON.parse(jsonString)
+    return { valid: true, error: null }
+  } catch (error) {
+    return { valid: false, error: error.message }
+  }
+}
+
+// Format JSON in textarea
+const formatJSON = () => {
+  if (request.value.body.trim()) {
+    const validation = validateJSON(request.value.body)
+    if (validation.valid) {
+      try {
+        const parsed = JSON.parse(request.value.body)
+        request.value.body = JSON.stringify(parsed, null, 2)
+        updateJSONValidation(true, 'JSON formatted successfully')
+      } catch (error) {
+        updateJSONValidation(false, `Format error: ${error.message}`)
+      }
+    } else {
+      updateJSONValidation(false, `Cannot format: ${validation.error}`)
+    }
+  }
+}
+
+// Handle body input changes for real-time JSON validation
+const onBodyInput = () => {
+  if (bodyType.value === 'json' && request.value.body.trim()) {
+    const validation = validateJSON(request.value.body)
+    updateJSONValidation(validation.valid, validation.error)
+  } else {
+    updateJSONValidation(true, '')
+  }
+}
+
+// Update JSON validation state
+const updateJSONValidation = (valid, message) => {
+  isValidJSON.value = valid
+  jsonValidationMessage.value = message || ''
+  jsonValidationClass.value = valid ? 'valid' : 'invalid'
+  
+  // Clear success message after 2 seconds
+  if (valid && message) {
+    setTimeout(() => {
+      if (jsonValidationMessage.value === message) {
+        jsonValidationMessage.value = ''
+      }
+    }, 2000)
+  }
+}
 
 // Send HTTP request
 const sendRequest = async () => {
   if (!request.value.url) {
     alert('Please enter a URL')
     return
+  }
+
+  // Validate JSON if body type is JSON
+  if (bodyType.value === 'json' && request.value.body.trim()) {
+    const validation = validateJSON(request.value.body)
+    if (!validation.valid) {
+      alert(`Invalid JSON format: ${validation.error}`)
+      return
+    }
   }
 
   loading.value = true
@@ -377,5 +467,71 @@ defineExpose({ loadRequest })
 
 .save-btn:hover {
   background: #138496;
+}
+
+/* JSON-specific styles */
+.body-input-container {
+  width: 100%;
+}
+
+.json-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.format-btn {
+  padding: 6px 12px;
+  background: #6f42c1;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.format-btn:hover {
+  background: #5a32a3;
+}
+
+.validation-message {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 3px;
+}
+
+.validation-message.valid {
+  color: #155724;
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+}
+
+.validation-message.invalid {
+  color: #721c24;
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+}
+
+.body-textarea.json-invalid {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+.body-textarea:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.body-textarea.json-invalid:focus {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
 }
 </style>
