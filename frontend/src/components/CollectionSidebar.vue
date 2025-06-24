@@ -93,12 +93,24 @@
         </div>
       </div>
     </div>
+    
+    <!-- Confirm Dialog -->
+    <ConfirmDialog
+      ref="confirmDialog"
+      title="Delete Request"
+      message="Are you sure you want to delete this request? This action cannot be undone."
+      confirm-text="Delete"
+      cancel-text="Cancel"
+      @confirm="confirmDelete"
+      @cancel="cancelDelete"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { CollectionService } from '../../bindings/changeme'
+import ConfirmDialog from './ConfirmDialog.vue'
 
 const emit = defineEmits(['load-request'])
 
@@ -109,6 +121,8 @@ const newCollection = ref({
   name: '',
   description: ''
 })
+const confirmDialog = ref(null)
+let pendingDeleteRequest = null
 
 // Load collections on mount
 onMounted(async () => {
@@ -143,16 +157,30 @@ const loadRequest = (request) => {
   emit('load-request', request)
 }
 
-const deleteRequest = async (collectionId, requestId) => {
-  if (confirm('Are you sure you want to delete this request?')) {
+const deleteRequest = (collectionId, requestId) => {
+  // Store the pending delete request
+  pendingDeleteRequest = { collectionId, requestId }
+  // Show the confirmation dialog
+  confirmDialog.value.show()
+}
+
+const confirmDelete = async () => {
+  if (pendingDeleteRequest) {
     try {
-      await CollectionService.DeleteRequest(collectionId, requestId)
+      await CollectionService.DeleteRequest(pendingDeleteRequest.collectionId, pendingDeleteRequest.requestId)
       await loadCollections()
+      console.log('Request deleted successfully')
     } catch (error) {
       console.error('Failed to delete request:', error)
       alert('Failed to delete request')
+    } finally {
+      pendingDeleteRequest = null
     }
   }
+}
+
+const cancelDelete = () => {
+  pendingDeleteRequest = null
 }
 
 const createCollection = async () => {

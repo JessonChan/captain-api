@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -20,10 +21,10 @@ func NewCollectionService() *CollectionService {
 	// Get user's home directory
 	homeDir, _ := os.UserHomeDir()
 	collectionsPath := filepath.Join(homeDir, ".captain-api", "collections")
-	
+
 	// Create directory if it doesn't exist
 	os.MkdirAll(collectionsPath, 0755)
-	
+
 	return &CollectionService{
 		collectionsPath: collectionsPath,
 	}
@@ -58,12 +59,12 @@ func (c *CollectionService) SaveRequest(ctx context.Context, collectionID string
 	if request.ID == "" {
 		request.ID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
-	
+
 	request.UpdatedAt = time.Now()
 	if request.CreatedAt.IsZero() {
 		request.CreatedAt = request.UpdatedAt
 	}
-	
+
 	// Load existing collection or create new one
 	collection, err := c.GetCollection(ctx, collectionID)
 	if err != nil {
@@ -76,7 +77,7 @@ func (c *CollectionService) SaveRequest(ctx context.Context, collectionID string
 			UpdatedAt: time.Now(),
 		}
 	}
-	
+
 	// Check if request already exists (update) or add new
 	found := false
 	for i, req := range collection.Requests {
@@ -86,31 +87,31 @@ func (c *CollectionService) SaveRequest(ctx context.Context, collectionID string
 			break
 		}
 	}
-	
+
 	if !found {
 		collection.Requests = append(collection.Requests, request)
 	}
-	
+
 	collection.UpdatedAt = time.Now()
-	
+
 	return c.saveCollection(collection)
 }
 
 // GetCollection retrieves a collection by ID
 func (c *CollectionService) GetCollection(ctx context.Context, collectionID string) (*Collection, error) {
 	filePath := filepath.Join(c.collectionsPath, collectionID+".json")
-	
+
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("collection not found: %w", err)
 	}
-	
+
 	var collection Collection
 	err = json.Unmarshal(data, &collection)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse collection: %w", err)
 	}
-	
+
 	return &collection, nil
 }
 
@@ -120,9 +121,9 @@ func (c *CollectionService) GetAllCollections(ctx context.Context) ([]Collection
 	if err != nil {
 		return []Collection{}, nil // Return empty slice if directory doesn't exist
 	}
-	
+
 	var collections []Collection
-	
+
 	for _, file := range files {
 		if filepath.Ext(file.Name()) == ".json" {
 			collectionID := strings.TrimSuffix(file.Name(), ".json")
@@ -132,7 +133,7 @@ func (c *CollectionService) GetAllCollections(ctx context.Context) ([]Collection
 			}
 		}
 	}
-	
+
 	return collections, nil
 }
 
@@ -142,7 +143,7 @@ func (c *CollectionService) DeleteRequest(ctx context.Context, collectionID, req
 	if err != nil {
 		return err
 	}
-	
+
 	// Find and remove the request
 	for i, req := range collection.Requests {
 		if req.ID == requestID {
@@ -151,7 +152,7 @@ func (c *CollectionService) DeleteRequest(ctx context.Context, collectionID, req
 			return c.saveCollection(collection)
 		}
 	}
-	
+
 	return fmt.Errorf("request not found")
 }
 
@@ -165,27 +166,30 @@ func (c *CollectionService) CreateCollection(ctx context.Context, name, descript
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
-	
+
 	err := c.saveCollection(collection)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return collection, nil
 }
 
 // saveCollection saves a collection to disk
 func (c *CollectionService) saveCollection(collection *Collection) error {
+	slices.SortFunc(collection.Requests, func(a, b RequestItem) int {
+		return b.CreatedAt.Compare(a.CreatedAt) // Sort in descending order (newest first)
+	})
 	data, err := json.MarshalIndent(collection, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal collection: %w", err)
 	}
-	
+
 	filePath := filepath.Join(c.collectionsPath, collection.ID+".json")
 	err = os.WriteFile(filePath, data, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to save collection: %w", err)
 	}
-	
+
 	return nil
 }
