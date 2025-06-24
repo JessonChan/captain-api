@@ -73,6 +73,7 @@
             </span>
           </div>
           <textarea 
+            spellcheck="false"
             v-model="request.body"
             :placeholder="bodyType === 'json' ? 'Enter JSON body' : 'Enter request body'"
             :class="['body-textarea', { 'json-invalid': bodyType === 'json' && !isValidJSON }]"
@@ -439,6 +440,11 @@ defineExpose({ loadRequest })
   border-radius: 4px;
   font-family: 'Courier New', monospace;
   resize: vertical;
+  /* Prevent smart quote conversion */
+  font-variant-ligatures: none;
+  text-rendering: optimizeSpeed;
+  -webkit-font-feature-settings: "liga" off;
+  font-feature-settings: "liga" off;
 }
 
 .save-section {
