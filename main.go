@@ -29,7 +29,7 @@ func main() {
 	// 'Mac' options tailor the application when running an macOS.
 	// Create shared environment service
 	envService := NewEnvironmentService()
-	
+
 	app := application.New(application.Options{
 		Name:        "captain-api",
 		Description: "A demo of using raw HTML & CSS",
@@ -61,8 +61,9 @@ func main() {
 		},
 		BackgroundColour: application.NewRGB(27, 38, 54),
 		URL:              "/",
+		Width:            1440,
+		Height:           1200,
 	})
-
 	// Create a goroutine that emits an event containing the current time every second.
 	// The frontend can listen to this event and update the UI accordingly.
 	go func() {
