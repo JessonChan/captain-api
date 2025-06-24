@@ -43,14 +43,25 @@ type RequestItem struct {
 	UpdatedAt   time.Time         `json:"updatedAt"`
 }
 
+// CollectionEnvironment represents an environment within a collection
+type CollectionEnvironment struct {
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	BaseURL     string            `json:"baseUrl"`
+	Description string            `json:"description"`
+	Headers     map[string]string `json:"headers"`
+	IsActive    bool              `json:"isActive"`
+}
+
 // Collection represents a collection of requests
 type Collection struct {
-	ID          string        `json:"id"`
-	Name        string        `json:"name"`
-	Description string        `json:"description"`
-	Requests    []RequestItem `json:"requests"`
-	CreatedAt   time.Time     `json:"createdAt"`
-	UpdatedAt   time.Time     `json:"updatedAt"`
+	ID           string                   `json:"id"`
+	Name         string                   `json:"name"`
+	Description  string                   `json:"description"`
+	Environments []CollectionEnvironment  `json:"environments"`
+	Requests     []RequestItem            `json:"requests"`
+	CreatedAt    time.Time                `json:"createdAt"`
+	UpdatedAt    time.Time                `json:"updatedAt"`
 }
 
 // SaveRequest saves a request to a collection
@@ -70,11 +81,12 @@ func (c *CollectionService) SaveRequest(ctx context.Context, collectionID string
 	if err != nil {
 		// Create new collection if it doesn't exist
 		collection = &Collection{
-			ID:        collectionID,
-			Name:      "Default Collection",
-			Requests:  []RequestItem{},
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			ID:           collectionID,
+			Name:         "Default Collection",
+			Environments: c.createDefaultEnvironments(),
+			Requests:     []RequestItem{},
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		}
 	}
 
@@ -192,4 +204,164 @@ func (c *CollectionService) saveCollection(collection *Collection) error {
 	}
 
 	return nil
+}
+
+// createDefaultEnvironments creates default environments for a new collection
+func (c *CollectionService) createDefaultEnvironments() []CollectionEnvironment {
+	return []CollectionEnvironment{
+		{
+			ID:          "dev",
+			Name:        "Development",
+			BaseURL:     "http://localhost:3000",
+			Description: "Local development environment",
+			Headers:     map[string]string{},
+			IsActive:    true,
+		},
+		{
+			ID:          "staging",
+			Name:        "Staging",
+			BaseURL:     "https://staging.api.example.com",
+			Description: "Staging environment for testing",
+			Headers:     map[string]string{},
+			IsActive:    false,
+		},
+		{
+			ID:          "prod",
+			Name:        "Production",
+			BaseURL:     "https://api.example.com",
+			Description: "Production environment",
+			Headers:     map[string]string{},
+			IsActive:    false,
+		},
+	}
+}
+
+// GetCollectionEnvironments returns all environments for a collection
+func (c *CollectionService) GetCollectionEnvironments(ctx context.Context, collectionID string) ([]CollectionEnvironment, error) {
+	collection, err := c.GetCollection(ctx, collectionID)
+	if err != nil {
+		return nil, err
+	}
+	return collection.Environments, nil
+}
+
+// GetActiveCollectionEnvironment returns the active environment for a collection
+func (c *CollectionService) GetActiveCollectionEnvironment(ctx context.Context, collectionID string) (*CollectionEnvironment, error) {
+	collection, err := c.GetCollection(ctx, collectionID)
+	if err != nil {
+		return nil, err
+	}
+	
+	for _, env := range collection.Environments {
+		if env.IsActive {
+			return &env, nil
+		}
+	}
+	return nil, fmt.Errorf("no active environment found for collection %s", collectionID)
+}
+
+// SetActiveCollectionEnvironment sets the active environment for a collection
+func (c *CollectionService) SetActiveCollectionEnvironment(ctx context.Context, collectionID, envID string) error {
+	collection, err := c.GetCollection(ctx, collectionID)
+	if err != nil {
+		return err
+	}
+	
+	found := false
+	for i := range collection.Environments {
+		if collection.Environments[i].ID == envID {
+			collection.Environments[i].IsActive = true
+			found = true
+		} else {
+			collection.Environments[i].IsActive = false
+		}
+	}
+	
+	if !found {
+		return fmt.Errorf("environment with ID %s not found in collection %s", envID, collectionID)
+	}
+	
+	collection.UpdatedAt = time.Now()
+	return c.saveCollection(collection)
+}
+
+// AddCollectionEnvironment adds a new environment to a collection
+func (c *CollectionService) AddCollectionEnvironment(ctx context.Context, collectionID string, env CollectionEnvironment) error {
+	collection, err := c.GetCollection(ctx, collectionID)
+	if err != nil {
+		return err
+	}
+	
+	// Generate ID if not provided
+	if env.ID == "" {
+		env.ID = fmt.Sprintf("env_%d", time.Now().UnixNano())
+	}
+	
+	// Check if ID already exists
+	for _, existing := range collection.Environments {
+		if existing.ID == env.ID {
+			return fmt.Errorf("environment with ID %s already exists in collection %s", env.ID, collectionID)
+		}
+	}
+	
+	// If this is the first environment, make it active
+	if len(collection.Environments) == 0 {
+		env.IsActive = true
+	}
+	
+	collection.Environments = append(collection.Environments, env)
+	collection.UpdatedAt = time.Now()
+	return c.saveCollection(collection)
+}
+
+// UpdateCollectionEnvironment updates an existing environment in a collection
+func (c *CollectionService) UpdateCollectionEnvironment(ctx context.Context, collectionID string, env CollectionEnvironment) error {
+	collection, err := c.GetCollection(ctx, collectionID)
+	if err != nil {
+		return err
+	}
+	
+	for i, existing := range collection.Environments {
+		if existing.ID == env.ID {
+			// Preserve the IsActive state
+			env.IsActive = existing.IsActive
+			collection.Environments[i] = env
+			collection.UpdatedAt = time.Now()
+			return c.saveCollection(collection)
+		}
+	}
+	
+	return fmt.Errorf("environment with ID %s not found in collection %s", env.ID, collectionID)
+}
+
+// DeleteCollectionEnvironment deletes an environment from a collection
+func (c *CollectionService) DeleteCollectionEnvironment(ctx context.Context, collectionID, envID string) error {
+	collection, err := c.GetCollection(ctx, collectionID)
+	if err != nil {
+		return err
+	}
+	
+	// Don't allow deleting the last environment
+	if len(collection.Environments) == 1 {
+		return fmt.Errorf("cannot delete the last environment in collection %s", collectionID)
+	}
+	
+	for i, env := range collection.Environments {
+		if env.ID == envID {
+			wasActive := env.IsActive
+			
+			// Remove environment
+			collection.Environments = append(collection.Environments[:i], collection.Environments[i+1:]...)
+			
+			// If deleted environment was active, make the first one active
+			if wasActive && len(collection.Environments) > 0 {
+				collection.Environments[0].IsActive = true
+			}
+			
+			collection.UpdatedAt = time.Now()
+			return c.saveCollection(collection)
+		}
+	}
+	
+	return fmt.Errorf("environment with ID %s not found in collection %s", envID, collectionID)
 }
