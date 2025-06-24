@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
 import CollectionSidebar from './components/CollectionSidebar.vue'
+import EnvironmentSelector from './components/EnvironmentSelector.vue'
 
 const response = ref(null)
 const requestBuilderRef = ref(null)
@@ -35,6 +36,9 @@ const handleRequestSaved = () => {
         </div>
         <div class="header-subtitle">
           A Postman-like API client built with Wails + Vue3
+        </div>
+        <div class="environment-container">
+          <EnvironmentSelector />
         </div>
       </div>
     </header>
@@ -102,6 +106,12 @@ body {
 .header-content {
   max-width: 1200px;
   margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 100%;
+  flex-wrap: wrap;
 }
 
 .logo-section {
@@ -126,6 +136,11 @@ body {
   font-size: 16px;
   opacity: 0.9;
   font-weight: 300;
+}
+
+.environment-container {
+  margin-left: auto;
+  min-width: 300px;
 }
 
 .app-main {

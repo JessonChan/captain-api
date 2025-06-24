@@ -10,7 +10,7 @@
         <input 
           v-model="request.url" 
           type="text" 
-          placeholder="Enter request URL" 
+          placeholder="Enter request URL (use relative paths like /api/users with environments)" 
           class="url-input"
           @keyup.enter="sendRequest"
         />

@@ -13,6 +13,7 @@ import (
 // HTTPService handles HTTP requests for the Postman-like client
 type HTTPService struct {
 	client *http.Client
+	envService *EnvironmentService
 }
 
 // NewHTTPService creates a new HTTP service
@@ -21,6 +22,17 @@ func NewHTTPService() *HTTPService {
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		envService: NewEnvironmentService(),
+	}
+}
+
+// NewHTTPServiceWithEnv creates a new HTTP service with a shared environment service
+func NewHTTPServiceWithEnv(envService *EnvironmentService) *HTTPService {
+	return &HTTPService{
+		client: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		envService: envService,
 	}
 }
 
@@ -45,6 +57,13 @@ type HTTPResponse struct {
 // SendRequest sends an HTTP request and returns the response
 func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (*HTTPResponse, error) {
 	start := time.Now()
+
+	// Resolve URL with environment base URL if needed
+	resolvedURL, err := h.resolveURL(ctx, req.URL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve URL: %w", err)
+	}
+	req.URL = resolvedURL
 
 	// Validate and clean JSON body if content-type is JSON
 	if req.Body != "" {
@@ -147,7 +166,30 @@ func (h *HTTPService) ValidateURL(url string) bool {
 	return err == nil && req.URL != nil
 }
 
-// GetSupportedMethods returns list of supported HTTP methods
-func (h *HTTPService) GetSupportedMethods() []string {
+// GetSupportedMethods returns a list of supported HTTP methods
+func (h *HTTPService) GetSupportedMethods(ctx context.Context) []string {
 	return []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
+}
+
+// resolveURL resolves a URL using the active environment's base URL if needed
+func (h *HTTPService) resolveURL(ctx context.Context, url string) (string, error) {
+	// If URL is already absolute, return it as is
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		return url, nil
+	}
+	
+	// Get active environment
+	activeEnv, err := h.envService.GetActiveEnvironment(ctx)
+	if err != nil {
+		return "", err
+	}
+	
+	// Ensure base URL doesn't end with a slash
+	baseURL := strings.TrimSuffix(activeEnv.BaseURL, "/")
+	
+	// Ensure URL doesn't start with a slash
+	relativeURL := strings.TrimPrefix(url, "/")
+	
+	// Combine base URL and relative URL
+	return baseURL + "/" + relativeURL, nil
 }
