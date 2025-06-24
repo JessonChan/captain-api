@@ -1,13 +1,31 @@
 <template>
   <div class="collection-sidebar">
     <div class="sidebar-header">
-      <h3>Collections</h3>
-      <button @click="showNewCollectionModal = true" class="new-collection-btn">
+      <div class="view-toggle">
+        <button 
+          @click="switchView('collections')" 
+          :class="['toggle-btn', { active: currentView === 'collections' }]"
+        >
+          Collections
+        </button>
+        <button 
+          @click="switchView('logs')" 
+          :class="['toggle-btn', { active: currentView === 'logs' }]"
+        >
+          Logs
+        </button>
+      </div>
+      <button 
+        v-if="currentView === 'collections'"
+        @click="showNewCollectionModal = true" 
+        class="new-collection-btn"
+      >
         +
       </button>
     </div>
 
-    <div class="collections-list">
+    <!-- Collections View -->
+    <div v-if="currentView === 'collections'" class="collections-list">
       <div 
         v-for="collection in collections" 
         :key="collection.id"
@@ -58,6 +76,13 @@
         <p class="empty-hint">Create a collection to organize your requests</p>
       </div>
     </div>
+
+    <!-- Logs View -->
+    <RequestLogs 
+      v-if="currentView === 'logs'"
+      ref="requestLogsRef"
+      @load-request="loadRequest"
+    />
 
     <!-- New Collection Modal -->
     <div v-if="showNewCollectionModal" class="modal-overlay" @click="closeModal">
@@ -111,9 +136,11 @@
 import { ref, onMounted } from 'vue'
 import { CollectionService } from '../../bindings/changeme'
 import ConfirmDialog from './ConfirmDialog.vue'
+import RequestLogs from './RequestLogs.vue'
 
 const emit = defineEmits(['load-request'])
 
+const currentView = ref('collections')
 const collections = ref([])
 const expandedCollections = ref(new Set(['default']))
 const showNewCollectionModal = ref(false)
@@ -122,6 +149,7 @@ const newCollection = ref({
   description: ''
 })
 const confirmDialog = ref(null)
+const requestLogsRef = ref(null)
 let pendingDeleteRequest = null
 
 // Load collections on mount
@@ -150,6 +178,14 @@ const toggleCollection = (collectionId) => {
     expandedCollections.value.delete(collectionId)
   } else {
     expandedCollections.value.add(collectionId)
+  }
+}
+
+const switchView = async (view) => {
+  currentView.value = view
+  // Refresh logs when switching to logs view
+  if (view === 'logs' && requestLogsRef.value) {
+    await requestLogsRef.value.loadLogs()
   }
 }
 
@@ -215,7 +251,10 @@ const refresh = () => {
   loadCollections()
 }
 
-defineExpose({ refresh })
+defineExpose({ 
+  refresh,
+  requestLogsRef
+})
 </script>
 
 <style scoped>
@@ -518,5 +557,44 @@ defineExpose({ refresh })
 
 .create-btn:hover {
   background: #0056b3;
+}
+
+/* View Toggle Styles */
+.view-toggle {
+  display: flex;
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.toggle-btn {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: #6c757d;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  flex: 1;
+  text-align: center;
+}
+
+.toggle-btn:hover {
+  color: #495057;
+  background: rgba(0, 123, 255, 0.1);
+}
+
+.toggle-btn.active {
+  background: #007bff;
+  color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-btn.active:hover {
+  background: #0056b3;
+  color: white;
 }
 </style>

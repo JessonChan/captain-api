@@ -27,12 +27,12 @@ type EnvironmentService struct {
 func NewEnvironmentService() *EnvironmentService {
 	homeDir, _ := os.UserHomeDir()
 	configPath := filepath.Join(homeDir, ".captain-api", "environments.json")
-	
+
 	service := &EnvironmentService{
 		environments: []Environment{},
 		configPath:   configPath,
 	}
-	
+
 	// Load existing environments or create defaults
 	service.loadEnvironments()
 	return service
@@ -64,11 +64,11 @@ func (e *EnvironmentService) SetActiveEnvironment(ctx context.Context, envID str
 			e.environments[i].IsActive = false
 		}
 	}
-	
+
 	if !found {
 		return fmt.Errorf("environment with ID %s not found", envID)
 	}
-	
+
 	return e.saveEnvironments()
 }
 
@@ -78,19 +78,19 @@ func (e *EnvironmentService) AddEnvironment(ctx context.Context, env Environment
 	if env.ID == "" {
 		env.ID = fmt.Sprintf("env_%d", len(e.environments)+1)
 	}
-	
+
 	// Check if ID already exists
 	for _, existing := range e.environments {
 		if existing.ID == env.ID {
 			return fmt.Errorf("environment with ID %s already exists", env.ID)
 		}
 	}
-	
+
 	// If this is the first environment, make it active
 	if len(e.environments) == 0 {
 		env.IsActive = true
 	}
-	
+
 	e.environments = append(e.environments, env)
 	return e.saveEnvironments()
 }
@@ -118,17 +118,17 @@ func (e *EnvironmentService) DeleteEnvironment(ctx context.Context, envID string
 			if len(e.environments) == 1 {
 				return fmt.Errorf("cannot delete the last environment")
 			}
-			
+
 			wasActive := env.IsActive
-			
+
 			// Remove environment
 			e.environments = append(e.environments[:i], e.environments[i+1:]...)
-			
+
 			// If deleted environment was active, make the first one active
 			if wasActive && len(e.environments) > 0 {
 				e.environments[0].IsActive = true
 			}
-			
+
 			return e.saveEnvironments()
 		}
 	}
@@ -140,7 +140,7 @@ func (e *EnvironmentService) loadEnvironments() {
 	// Create config directory if it doesn't exist
 	configDir := filepath.Dir(e.configPath)
 	os.MkdirAll(configDir, 0755)
-	
+
 	// Try to load existing config
 	data, err := os.ReadFile(e.configPath)
 	if err != nil {
@@ -148,16 +148,16 @@ func (e *EnvironmentService) loadEnvironments() {
 		e.createDefaultEnvironments()
 		return
 	}
-	
+
 	var environments []Environment
 	if err := json.Unmarshal(data, &environments); err != nil {
 		// Create default environments if JSON is invalid
 		e.createDefaultEnvironments()
 		return
 	}
-	
+
 	e.environments = environments
-	
+
 	// Ensure at least one environment is active
 	e.ensureActiveEnvironment()
 }
@@ -168,7 +168,7 @@ func (e *EnvironmentService) saveEnvironments() error {
 	if err != nil {
 		return err
 	}
-	
+
 	return os.WriteFile(e.configPath, data, 0644)
 }
 
@@ -209,7 +209,7 @@ func (e *EnvironmentService) ensureActiveEnvironment() {
 			break
 		}
 	}
-	
+
 	if !hasActive && len(e.environments) > 0 {
 		e.environments[0].IsActive = true
 		e.saveEnvironments()

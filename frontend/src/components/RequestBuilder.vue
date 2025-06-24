@@ -271,7 +271,7 @@ const saveRequest = async () => {
   try {
     const requestItem = {
       id: '',
-      name: requestName.value || `${request.value.method} ${request.value.url}`,
+      name: requestName.value || `${request.value.url}`,
       method: request.value.method,
       url: request.value.url,
       headers: headersObject.value,

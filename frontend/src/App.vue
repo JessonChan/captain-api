@@ -9,8 +9,12 @@ const response = ref(null)
 const requestBuilderRef = ref(null)
 const collectionSidebarRef = ref(null)
 
-const handleResponseReceived = (responseData) => {
+const handleResponseReceived = async (responseData) => {
   response.value = responseData
+  // Refresh logs after a request is made
+  if (collectionSidebarRef.value && collectionSidebarRef.value.requestLogsRef) {
+    await collectionSidebarRef.value.requestLogsRef.loadLogs()
+  }
 }
 
 const handleLoadRequest = (requestData) => {

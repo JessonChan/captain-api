@@ -12,8 +12,9 @@ import (
 
 // HTTPService handles HTTP requests for the Postman-like client
 type HTTPService struct {
-	client *http.Client
+	client     *http.Client
 	envService *EnvironmentService
+	logService *LogService
 }
 
 // NewHTTPService creates a new HTTP service
@@ -23,6 +24,7 @@ func NewHTTPService() *HTTPService {
 			Timeout: 30 * time.Second,
 		},
 		envService: NewEnvironmentService(),
+		logService: NewLogService(),
 	}
 }
 
@@ -33,6 +35,7 @@ func NewHTTPServiceWithEnv(envService *EnvironmentService) *HTTPService {
 			Timeout: 30 * time.Second,
 		},
 		envService: envService,
+		logService: NewLogService(),
 	}
 }
 
@@ -71,7 +74,7 @@ func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (*HTTPRe
 		if contentType == "" {
 			contentType = req.Headers["content-type"]
 		}
-		
+
 		if strings.Contains(strings.ToLower(contentType), "application/json") {
 			// Validate JSON format
 			var jsonTest interface{}
@@ -125,14 +128,22 @@ func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (*HTTPRe
 		headers[key] = strings.Join(values, ", ")
 	}
 
-	return &HTTPResponse{
+	// Create response object
+	response := &HTTPResponse{
 		StatusCode: resp.StatusCode,
 		Status:     resp.Status,
 		Headers:    headers,
 		Body:       string(bodyBytes),
 		Duration:   duration,
 		Size:       int64(len(bodyBytes)),
-	}, nil
+	}
+
+	// Log the request and response
+	if h.logService != nil {
+		_ = h.logService.LogRequest(ctx, req, response, duration)
+	}
+
+	return response, nil
 }
 
 // FormatJSON formats JSON string for better readability
@@ -156,12 +167,12 @@ func (h *HTTPService) ValidateURL(url string) bool {
 	if url == "" {
 		return false
 	}
-	
+
 	// Add http:// if no protocol specified
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		url = "http://" + url
 	}
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	return err == nil && req.URL != nil
 }
@@ -177,19 +188,59 @@ func (h *HTTPService) resolveURL(ctx context.Context, url string) (string, error
 	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
 		return url, nil
 	}
-	
+
 	// Get active environment
 	activeEnv, err := h.envService.GetActiveEnvironment(ctx)
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Ensure base URL doesn't end with a slash
 	baseURL := strings.TrimSuffix(activeEnv.BaseURL, "/")
-	
+
 	// Ensure URL doesn't start with a slash
 	relativeURL := strings.TrimPrefix(url, "/")
-	
+
 	// Combine base URL and relative URL
 	return baseURL + "/" + relativeURL, nil
+}
+
+// GetRequestLogs returns all logged requests
+func (h *HTTPService) GetRequestLogs(ctx context.Context) ([]RequestLog, error) {
+	if h.logService == nil {
+		return []RequestLog{}, nil
+	}
+	return h.logService.GetAllLogs(ctx)
+}
+
+// GetRequestLogByID returns a specific log by ID
+func (h *HTTPService) GetRequestLogByID(ctx context.Context, id string) (*RequestLog, error) {
+	if h.logService == nil {
+		return nil, nil
+	}
+	return h.logService.GetLogByID(ctx, id)
+}
+
+// ClearRequestLogs removes all logged requests
+func (h *HTTPService) ClearRequestLogs(ctx context.Context) error {
+	if h.logService == nil {
+		return nil
+	}
+	return h.logService.ClearLogs(ctx)
+}
+
+// GetRequestLogsCount returns the number of logged requests
+func (h *HTTPService) GetRequestLogsCount(ctx context.Context) (int, error) {
+	if h.logService == nil {
+		return 0, nil
+	}
+	return h.logService.GetLogsCount(ctx)
+}
+
+// ExportRequestLogsAsJSON exports all logs as JSON string
+func (h *HTTPService) ExportRequestLogsAsJSON(ctx context.Context) (string, error) {
+	if h.logService == nil {
+		return "[]", nil
+	}
+	return h.logService.ExportLogsAsJSON(ctx)
 }
