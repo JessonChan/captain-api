@@ -43,25 +43,26 @@ type RequestItem struct {
 	UpdatedAt   time.Time         `json:"updatedAt"`
 }
 
+
+
 // CollectionEnvironment represents an environment within a collection
 type CollectionEnvironment struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	BaseURL     string            `json:"baseUrl"`
-	Description string            `json:"description"`
-	Headers     map[string]string `json:"headers"`
-	IsActive    bool              `json:"isActive"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	BaseURL     string `json:"baseUrl"`
+	Description string `json:"description"`
+	IsActive    bool   `json:"isActive"`
 }
 
 // Collection represents a collection of requests
 type Collection struct {
-	ID           string                   `json:"id"`
-	Name         string                   `json:"name"`
-	Description  string                   `json:"description"`
-	Environments []CollectionEnvironment  `json:"environments"`
-	Requests     []RequestItem            `json:"requests"`
-	CreatedAt    time.Time                `json:"createdAt"`
-	UpdatedAt    time.Time                `json:"updatedAt"`
+	ID           string                  `json:"id"`
+	Name         string                  `json:"name"`
+	Description  string                  `json:"description"`
+	Environments []CollectionEnvironment `json:"environments"`
+	Requests     []RequestItem           `json:"requests"`
+	CreatedAt    time.Time               `json:"createdAt"`
+	UpdatedAt    time.Time               `json:"updatedAt"`
 }
 
 // SaveRequest saves a request to a collection
@@ -214,7 +215,6 @@ func (c *CollectionService) createDefaultEnvironments() []CollectionEnvironment 
 			Name:        "Development",
 			BaseURL:     "http://localhost:3000",
 			Description: "Local development environment",
-			Headers:     map[string]string{},
 			IsActive:    true,
 		},
 		{
@@ -222,7 +222,6 @@ func (c *CollectionService) createDefaultEnvironments() []CollectionEnvironment 
 			Name:        "Staging",
 			BaseURL:     "https://staging.api.example.com",
 			Description: "Staging environment for testing",
-			Headers:     map[string]string{},
 			IsActive:    false,
 		},
 		{
@@ -230,7 +229,6 @@ func (c *CollectionService) createDefaultEnvironments() []CollectionEnvironment 
 			Name:        "Production",
 			BaseURL:     "https://api.example.com",
 			Description: "Production environment",
-			Headers:     map[string]string{},
 			IsActive:    false,
 		},
 	}

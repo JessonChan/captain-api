@@ -27,17 +27,20 @@ func main() {
 	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
 	// 'Bind' is a list of Go struct instances. The frontend has access to the methods of these instances.
 	// 'Mac' options tailor the application when running an macOS.
-	// Create shared environment service
+	// Create shared services
 	envService := NewEnvironmentService()
+	collectionService := NewCollectionService()
+	headerService := NewHeaderService()
 
 	app := application.New(application.Options{
 		Name:        "captain-api",
 		Description: "A demo of using raw HTML & CSS",
 		Services: []application.Service{
 			application.NewService(&GreetService{}),
-			application.NewService(NewHTTPServiceWithEnv(envService)),
-			application.NewService(NewCollectionService()),
+			application.NewService(NewHTTPServiceWithEnv(envService, collectionService)),
+			application.NewService(collectionService),
 			application.NewService(envService),
+			application.NewService(headerService),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

@@ -118,6 +118,49 @@
           </div>
         </div>
         
+        <!-- Header Collection Selector (Compact) -->
+        <div v-if="expandedCollections.has(collection.id)" class="header-section">
+          <div class="header-card compact">
+            <div class="header-selector-wrapper">
+              <label class="header-label">Header Collection</label>
+              <div class="header-selector-row">
+                <div class="custom-select">
+                  <select 
+                    :value="getActiveHeaderCollection(collection.id) || ''"
+                    @change="setActiveHeaderCollection(collection.id, $event.target.value)"
+                    @click.stop
+                    class="header-select"
+                  >
+                    <option value="">Select header collection...</option>
+                    <option 
+                      v-for="headerCollection in headerCollections"
+                      :key="headerCollection.id"
+                      :value="headerCollection.id"
+                    >
+                      {{ headerCollection.name }}
+                    </option>
+                  </select>
+                  <span class="select-arrow">▼</span>
+                </div>
+                <button 
+                  @click.stop="openHeaderManager"
+                  class="manage-headers-btn"
+                  title="Manage header collections"
+                >
+                  ⚙️
+                </button>
+              </div>
+            </div>
+            <div v-if="getActiveHeaderCollection(collection.id)" class="header-preview">
+              <div class="header-count">{{ Object.keys(getActiveHeaderCollectionData(collection.id)?.headers || {}).length }} headers</div>
+              <div class="header-sample">
+                {{ Object.keys(getActiveHeaderCollectionData(collection.id)?.headers || {}).slice(0, 2).join(', ') }}
+                <span v-if="Object.keys(getActiveHeaderCollectionData(collection.id)?.headers || {}).length > 2">...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
         <div 
           v-if="expandedCollections.has(collection.id)"
           class="requests-list"
@@ -308,6 +351,7 @@
                 class="form-input"
               />
             </div>
+            
             <div class="form-actions">
               <button @click="cancelEnvForm" class="cancel-btn">Cancel</button>
               <button @click="saveEnvironment" class="save-btn">Save</button>
@@ -347,6 +391,10 @@ const newCollection = ref({
   description: ''
 })
 
+// Header collection management
+const headerCollections = ref([])
+const activeHeaderCollections = ref(new Map()) // collectionId -> headerCollectionId
+
 // Environment management
 const showEnvironmentModal = ref(false)
 const selectedCollectionId = ref('')
@@ -360,6 +408,8 @@ const envForm = ref({
   description: ''
 })
 
+
+
 // Collection menu
 const showCollectionMenu = ref(false)
 const menuPosition = ref({ x: 0, y: 0 })
@@ -371,6 +421,7 @@ let pendingDeleteRequest = null
 // Load collections on mount
 onMounted(async () => {
   await loadCollections()
+  await loadHeaderCollections()
 })
 
 // Methods
@@ -519,6 +570,7 @@ const editEnvironment = (env) => {
     baseURL: env.baseURL,
     description: env.description
   }
+  
   showEnvForm.value = true
 }
 
@@ -549,7 +601,6 @@ const saveEnvironment = async () => {
       name: envForm.value.name.trim(),
       baseURL: envForm.value.baseURL.trim(),
       description: envForm.value.description.trim(),
-      headers: {},
       isActive: false
     }
     
@@ -594,6 +645,45 @@ const deleteEnvironment = async (envId) => {
     alert('Failed to delete environment')
   }
 }
+
+// Header collection methods
+const loadHeaderCollections = async () => {
+  try {
+    // For now, we'll use mock data since HeaderService bindings aren't generated yet
+    headerCollections.value = [
+      { id: 'auth-headers', name: 'Authentication Headers', headers: { 'Authorization': 'Bearer token', 'X-API-Key': 'api-key' } },
+      { id: 'content-headers', name: 'Content Headers', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' } },
+      { id: 'cors-headers', name: 'CORS Headers', headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE' } }
+    ]
+  } catch (error) {
+    console.error('Failed to load header collections:', error)
+  }
+}
+
+const getActiveHeaderCollection = (collectionId) => {
+  return activeHeaderCollections.value.get(collectionId) || ''
+}
+
+const getActiveHeaderCollectionData = (collectionId) => {
+  const activeId = activeHeaderCollections.value.get(collectionId)
+  return headerCollections.value.find(hc => hc.id === activeId)
+}
+
+const setActiveHeaderCollection = (collectionId, headerCollectionId) => {
+  if (headerCollectionId) {
+    activeHeaderCollections.value.set(collectionId, headerCollectionId)
+  } else {
+    activeHeaderCollections.value.delete(collectionId)
+  }
+}
+
+// Open header manager modal
+const openHeaderManager = () => {
+  // This will be handled by the HeaderSettings component
+  document.dispatchEvent(new CustomEvent('open-header-settings'))
+}
+
+// Header manager function removed to simplify the application
 
 // Collection menu methods
 const openCollectionMenu = (collectionId, event) => {
@@ -954,6 +1044,7 @@ defineExpose({
   position: relative;
   display: flex;
   align-items: center;
+  flex: 1;
 }
 
 .environment-select {
@@ -976,10 +1067,12 @@ defineExpose({
 
 .select-arrow {
   position: absolute;
-  right: 12px;
-  font-size: 10px;
-  color: #6c757d;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
   pointer-events: none;
+  font-size: 8px;
+  color: #6c757d;
 }
 
 .environment-details {
@@ -1627,6 +1720,91 @@ defineExpose({
   background: rgba(0, 123, 255, 0.1);
 }
 
+/* Header Management Styles */
+.headers-section {
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 15px;
+  background: #f8f9fa;
+}
+
+.header-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.header-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+  transition: border-color 0.2s;
+}
+
+.header-select {
+  width: 100%;
+  padding: 6px 24px 6px 10px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 13px;
+  color: #495057;
+  appearance: none;
+  cursor: pointer;
+}
+
+.header-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
+.remove-header-btn {
+  padding: 6px 10px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.2s;
+  min-width: 32px;
+}
+
+.remove-header-btn:hover:not(:disabled) {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+.remove-header-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.add-header-btn {
+  padding: 8px 16px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  margin-top: 5px;
+}
+
+.add-header-btn:hover {
+  background: #218838;
+  transform: translateY(-1px);
+}
+
 .toggle-btn.active {
   background: #007bff;
   color: white;
@@ -1636,5 +1814,249 @@ defineExpose({
 .toggle-btn.active:hover {
   background: #0056b3;
   color: white;
+}
+
+/* Header Collection Styles */
+.header-collection-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-radius: 12px;
+  border: 1px solid #e3e6ea;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.header-section {
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+
+.header-card {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.header-card.compact {
+  padding: 8px 10px;
+}
+
+.header-selector-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 6px;
+}
+
+.header-preview {
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  font-size: 12px;
+}
+
+.header-count {
+  font-weight: 600;
+  color: #6f42c1;
+  margin-bottom: 2px;
+}
+
+.header-sample {
+  color: #6c757d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-collection-section:hover {
+  border-color: #d1ecf1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.header-collection-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-icon {
+  width: 16px;
+  height: 16px;
+  color: #6f42c1;
+}
+
+.header-selector-wrapper {
+  position: relative;
+  margin-bottom: 0;
+}
+
+.header-collection-selector {
+  width: 100%;
+  padding: 10px 35px 10px 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  background: white;
+  font-size: 13px;
+  color: #495057;
+  transition: all 0.2s ease;
+  appearance: none;
+  cursor: pointer;
+}
+
+.header-collection-selector:focus {
+  outline: none;
+  border-color: #6f42c1;
+  box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.1);
+}
+
+.header-collection-selector:hover {
+  border-color: #6f42c1;
+}
+
+.dropdown-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: #6c757d;
+  pointer-events: none;
+}
+
+.header-preview {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  margin-top: 8px;
+  padding: 8px;
+  font-size: 0.85rem;
+}
+
+.header-preview-title {
+  background: linear-gradient(135deg, #6f42c1 0%, #8e44ad 100%);
+  color: white;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.preview-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.header-list {
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.header-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f8f9fa;
+  transition: background-color 0.2s ease;
+}
+
+.header-item:last-child {
+  border-bottom: none;
+}
+
+.header-item:hover {
+  background-color: #f8f9fa;
+}
+
+.header-key {
+  margin-bottom: 4px;
+}
+
+.key-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.header-value {
+  color: #6c757d;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  background: #f8f9fa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.manage-headers-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6f42c1;
+}
+
+.manage-headers-btn:hover {
+  background: #e9ecef;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.manage-headers-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(111, 66, 193, 0.2);
+}
+
+.btn-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.no-headers {
+  text-align: center;
+  color: #8e9aaf;
+  font-size: 13px;
+  padding: 20px 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 2px dashed #dee2e6;
+}
+
+.empty-icon {
+  width: 24px;
+  height: 24px;
+  color: #ced4da;
 }
 </style>

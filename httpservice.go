@@ -12,9 +12,10 @@ import (
 
 // HTTPService handles HTTP requests for the Postman-like client
 type HTTPService struct {
-	client     *http.Client
-	envService *EnvironmentService
-	logService *LogService
+	client            *http.Client
+	envService        *EnvironmentService
+	logService        *LogService
+	collectionService *CollectionService
 }
 
 // NewHTTPService creates a new HTTP service
@@ -29,22 +30,24 @@ func NewHTTPService() *HTTPService {
 }
 
 // NewHTTPServiceWithEnv creates a new HTTP service with a shared environment service
-func NewHTTPServiceWithEnv(envService *EnvironmentService) *HTTPService {
+func NewHTTPServiceWithEnv(envService *EnvironmentService, collectionService *CollectionService) *HTTPService {
 	return &HTTPService{
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		envService: envService,
-		logService: NewLogService(),
+		envService:        envService,
+		logService:        NewLogService(),
+		collectionService: collectionService,
 	}
 }
 
 // HTTPRequest represents an HTTP request structure
 type HTTPRequest struct {
-	Method  string            `json:"method"`
-	URL     string            `json:"url"`
-	Headers map[string]string `json:"headers"`
-	Body    string            `json:"body"`
+	Method       string            `json:"method"`
+	URL          string            `json:"url"`
+	Headers      map[string]string `json:"headers"`
+	Body         string            `json:"body"`
+	CollectionID string            `json:"collectionId,omitempty"`
 }
 
 // HTTPResponse represents an HTTP response structure
@@ -67,6 +70,15 @@ func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (*HTTPRe
 		return nil, fmt.Errorf("failed to resolve URL: %w", err)
 	}
 	req.URL = resolvedURL
+
+	// Merge collection environment headers with request headers
+	if req.CollectionID != "" && h.collectionService != nil {
+		req.Headers, err = h.mergeCollectionHeaders(ctx, req.CollectionID, req.Headers)
+		if err != nil {
+			// Log warning but don't fail the request
+			fmt.Printf("Warning: failed to merge collection headers: %v\n", err)
+		}
+	}
 
 	// Validate and clean JSON body if content-type is JSON
 	if req.Body != "" {
@@ -243,4 +255,10 @@ func (h *HTTPService) ExportRequestLogsAsJSON(ctx context.Context) (string, erro
 		return "[]", nil
 	}
 	return h.logService.ExportLogsAsJSON(ctx)
+}
+
+// mergeCollectionHeaders returns request headers as-is since environment headers are now managed separately
+func (h *HTTPService) mergeCollectionHeaders(ctx context.Context, collectionID string, requestHeaders map[string]string) (map[string]string, error) {
+	// Return original headers since environment headers are now managed separately
+	return requestHeaders, nil
 }

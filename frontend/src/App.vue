@@ -4,10 +4,12 @@ import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
 import CollectionSidebar from './components/CollectionSidebar.vue'
 import EnvironmentSelector from './components/EnvironmentSelector.vue'
+import HeaderSettings from './components/HeaderSettings.vue'
 
 const response = ref(null)
 const requestBuilderRef = ref(null)
 const collectionSidebarRef = ref(null)
+const currentCollectionId = ref('default')
 
 const handleResponseReceived = async (responseData) => {
   response.value = responseData
@@ -48,8 +50,11 @@ const handleRequestSaved = () => {
         <div class="header-subtitle">
           A Postman-like API client built with Wails3 + Vue
         </div>
-        <div class="environment-container">
-          <EnvironmentSelector />
+        <div class="header-nav">
+          <div class="environment-container">
+            <EnvironmentSelector />
+            <HeaderSettings />
+          </div>
         </div>
       </div>
     </header>
@@ -70,6 +75,7 @@ const handleRequestSaved = () => {
           <section class="request-section">
             <RequestBuilder 
               ref="requestBuilderRef"
+              :collectionId="currentCollectionId"
               @response-received="handleResponseReceived"
               @request-saved="handleRequestSaved"
             />
@@ -190,6 +196,22 @@ body {
   flex: 1;
   min-height: 0;
 }
+
+/* Header Navigation */
+.header-nav {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.environment-container {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+
 
 /* Responsive Design */
 @media (max-width: 1024px) {
