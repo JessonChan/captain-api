@@ -1,6 +1,17 @@
 # Captain API - Postman-like Client
 
-A modern API testing client built with Wails (Go + Vue3) that provides a Postman-like interface for testing HTTP APIs.
+Captain API is a modern, desktop-based API testing client built with cutting-edge technologies (Go + Vue3 + Wails3) that provides developers with a powerful, Postman-like interface for testing and managing HTTP APIs.
+
+## What is Captain API?
+Captain API is a free, open-source API testing tool designed to streamline the API development and testing workflow. Whether you're a backend developer, frontend engineer, or QA tester, Captain API provides an intuitive interface to send HTTP requests, organize API collections, and analyze responses efficiently.
+
+## Why Choose Captain API?
+✅ Free & Open Source - No subscription fees or usage limits 
+✅ Privacy-First - All data stored locally on your machine 
+✅ Fast & Lightweight - Native desktop performance 
+✅ Cross-Platform - Works on Windows, macOS, and Linux 
+
+*Captain API empowers developers to test, debug, and document APIs efficiently with a tool that prioritizes simplicity, performance, and developer experience.*
 
 ## Screenshots
 
