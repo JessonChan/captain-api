@@ -1,6 +1,17 @@
 <template>
   <div class="request-builder">
     <div class="request-header">
+      <!-- Save Request Section -->
+      <div class="save-section">
+        <input 
+          v-model="requestName" 
+          type="text" 
+          placeholder="Request name (optional)"
+          class="name-input"
+        />
+        <button @click="saveRequest" class="save-btn">Save Request</button>
+      </div>
+      
       <div class="method-url-row">
         <select v-model="request.method" class="method-select">
           <option v-for="method in methods" :key="method" :value="method">
@@ -84,16 +95,7 @@
       </div>
     </div>
 
-    <!-- Save Request Section -->
-    <div class="save-section">
-      <input 
-        v-model="requestName" 
-        type="text" 
-        placeholder="Request name (optional)"
-        class="name-input"
-      />
-      <button @click="saveRequest" class="save-btn">Save Request</button>
-    </div>
+
   </div>
 </template>
 
@@ -328,7 +330,10 @@ defineExpose({ loadRequest })
 .request-builder {
   background: white;
   border-radius: 8px;
-  padding: 20px;
+  padding-left: 20px;
+  padding-right: 20px;
+  padding-bottom: 10px;
+  padding-top: 10px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -362,6 +367,7 @@ defineExpose({ loadRequest })
   border-radius: 4px;
   cursor: pointer;
   font-weight: 500;
+  width: 100px;
 }
 
 .send-btn:hover:not(:disabled) {
@@ -455,8 +461,7 @@ defineExpose({ loadRequest })
 .save-section {
   display: flex;
   gap: 10px;
-  margin-top: 20px;
-  padding-top: 20px;
+  margin-bottom: 10px;
   border-top: 1px solid #eee;
 }
 
