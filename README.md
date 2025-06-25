@@ -6,9 +6,9 @@ Captain API is a modern, desktop-based API testing client built with cutting-edg
 Captain API is a free, open-source API testing tool designed to streamline the API development and testing workflow. Whether you're a backend developer, frontend engineer, or QA tester, Captain API provides an intuitive interface to send HTTP requests, organize API collections, and analyze responses efficiently.
 
 ## Why Choose Captain API?
-✅ Free & Open Source - No subscription fees or usage limits 
-✅ Privacy-First - All data stored locally on your machine 
-✅ Fast & Lightweight - Native desktop performance 
+✅ Free & Open Source - No subscription fees or usage limits  
+✅ Privacy-First - All data stored locally on your machine  
+✅ Fast & Lightweight - Native desktop performance   
 ✅ Cross-Platform - Works on Windows, macOS, and Linux 
 
 *Captain API empowers developers to test, debug, and document APIs efficiently with a tool that prioritizes simplicity, performance, and developer experience.*
