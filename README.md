@@ -2,6 +2,11 @@
 
 A modern API testing client built with Wails (Go + Vue3) that provides a Postman-like interface for testing HTTP APIs.
 
+## Screenshots
+
+![Captain API Interface](./images/captain-api-image.png)
+*Modern API testing interface with request builder and response viewer*
+
 ## Features
 
 ### 🚀 Core Features
