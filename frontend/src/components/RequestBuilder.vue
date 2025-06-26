@@ -45,17 +45,7 @@
     <div class="tab-content">
       <!-- Headers Tab -->
       <div v-if="activeTab === 'Headers'" class="headers-section">
-        <div class="headers-toolbar">
-          <div class="header-collections">
-            <select v-model="selectedHeaderCollection" @change="applyHeaderCollection" class="header-collection-select">
-              <option value="">Select header collection...</option>
-              <option v-for="collection in headerCollections" :key="collection.id" :value="collection.id">
-                {{ collection.name }}
-              </option>
-            </select>
-            <button @click="applySelectedCollection" class="apply-btn" :disabled="!selectedHeaderCollection">Apply</button>
-          </div>
-        </div>
+
         
         <div class="headers-list">
           <div class="header-row" v-for="(header, index) in headersList" :key="index">
@@ -114,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { HTTPService, CollectionService } from '../../bindings/captain-api'
 
 const props = defineProps({
@@ -145,46 +135,8 @@ const jsonValidationClass = ref('')
 
 // Headers management
 const headersList = ref([{ key: '', value: '' }])
-const headerCollections = ref([])
-const selectedHeaderCollection = ref('')
 
-// Load header collections
-onMounted(async () => {
-  await loadHeaderCollections()
-})
 
-// Load header collections from backend
-const loadHeaderCollections = async () => {
-  try {
-    // For now, we'll use mock data since HeaderService bindings might not be fully implemented
-    headerCollections.value = [
-      { 
-        id: 'auth-headers', 
-        name: 'Authentication Headers', 
-        description: 'Common authentication headers',
-        headers: { 'Authorization': 'Bearer token', 'X-API-Key': 'api-key' } 
-      },
-      { 
-        id: 'content-headers', 
-        name: 'Content Headers', 
-        description: 'Content type headers',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' } 
-      },
-      { 
-        id: 'cors-headers', 
-        name: 'CORS Headers', 
-        description: 'Cross-origin resource sharing headers',
-        headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE' } 
-      }
-    ]
-    
-    // Uncomment when backend is ready
-    // const collections = await GetHeaderCollections()
-    // headerCollections.value = collections
-  } catch (error) {
-    console.error('Failed to load header collections:', error)
-  }
-}
 
 const addHeader = () => {
   headersList.value.push({ key: '', value: '' })
@@ -196,26 +148,7 @@ const removeHeader = (index) => {
   }
 }
 
-// Apply selected header collection
-const applySelectedCollection = () => {
-  if (selectedHeaderCollection.value) {
-    applyHeaderCollection()
-  }
-}
 
-// Apply header collection to current headers
-const applyHeaderCollection = () => {
-  const collection = headerCollections.value.find(c => c.id === selectedHeaderCollection.value)
-  if (collection && collection.headers) {
-    // Convert headers object to list
-    headersList.value = Object.entries(collection.headers).map(([key, value]) => ({ key, value }))
-    
-    // Ensure there's at least one empty row if no headers
-    if (headersList.value.length === 0) {
-      headersList.value = [{ key: '', value: '' }]
-    }
-  }
-}
 
 // Convert headers list to object
 const headersObject = computed(() => {
@@ -482,43 +415,7 @@ defineExpose({ loadRequest })
   font-weight: 500;
 }
 
-.headers-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #eee;
-}
 
-.header-collections {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.header-collection-select {
-  padding: 8px 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  min-width: 200px;
-}
-
-.apply-btn {
-  padding: 8px 15px;
-  background-color: #4caf50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.apply-btn:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
 
 .headers-list {
   margin-top: 10px;
