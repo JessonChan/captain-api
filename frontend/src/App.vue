@@ -91,7 +91,20 @@ const handleRequestSaved = () => {
   </div>
 </template>
 
-<style>
+<style lang="scss">
+// Variables
+$primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+$background-color: #f5f6fa;
+$max-width: 100vw;
+$sidebar-width: 300px;
+$border-radius: 10px;
+$box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+// Font stack
+$font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+
+// Global styles
 * {
   margin: 0;
   padding: 0;
@@ -99,36 +112,65 @@ const handleRequestSaved = () => {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: $font-family;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #f5f6fa;
+  background: $background-color;
 }
 
 .app {
   height: 100vh;
   display: flex;
   flex-direction: column;
+
+  &-header {
+    background: $primary-gradient;
+    color: white;
+    padding: 20px;
+    box-shadow: $box-shadow;
+  }
+
+  &-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: $border-radius;
+  }
+
+  &-title {
+    font-size: 28px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  &-main {
+    flex: 1;
+    overflow: hidden;
+  }
 }
 
-.app-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
+.header {
+  &-content {
+    max-width: $max-width;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    height: 100%;
+    flex-wrap: wrap;
+  }
 
-.header-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  height: 100%;
-  flex-wrap: wrap;
+  &-subtitle {
+    font-size: 16px;
+    opacity: 0.9;
+    font-weight: 300;
+  }
+
+  &-nav {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+  }
 }
 
 .logo-section {
@@ -138,54 +180,36 @@ body {
   margin-bottom: 8px;
 }
 
-.app-logo {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-}
-
-.app-title {
-  font-size: 28px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.header-subtitle {
-  font-size: 16px;
-  opacity: 0.9;
-  font-weight: 300;
-}
-
 .environment-container {
   margin-left: auto;
   min-width: 300px;
-}
-
-.app-main {
-  flex: 1;
-  overflow: hidden;
-}
-
-.main-layout {
   display: flex;
-  height: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-  gap: 20px;
+  align-items: center;
+  gap: 10px;
+}
+
+.main {
+  &-layout {
+    display: flex;
+    height: 100%;
+    max-width: $max-width;
+    margin: 0 auto;
+    padding: 20px;
+    gap: 20px;
+  }
+
+  &-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+  }
 }
 
 .sidebar {
-  width: 300px;
-  flex-shrink: 0;
-}
-
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 0;
+  max-width: $sidebar-width;
+  flex: 0 0 auto;
 }
 
 .request-section {
@@ -197,23 +221,26 @@ body {
   min-height: 0;
 }
 
-/* Header Navigation */
-.header-nav {
-  display: flex;
-  align-items: center;
-  margin-top: 10px;
+// Scrollbar styling
+::-webkit-scrollbar {
+  width: 8px;
+
+  &-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+
+  &-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+
+    &:hover {
+      background: #a8a8a8;
+    }
+  }
 }
 
-.environment-container {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-
-
-/* Responsive Design */
+// Responsive design
 @media (max-width: 1024px) {
   .main-layout {
     flex-direction: column;
@@ -247,24 +274,5 @@ body {
     padding: 10px;
     gap: 15px;
   }
-}
-
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
 }
 </style>
