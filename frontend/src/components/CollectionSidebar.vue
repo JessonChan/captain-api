@@ -56,13 +56,6 @@
           </div>
           <div class="collection-actions">
             <button 
-              @click.stop="openEnvironmentModal(collection.id)"
-              class="action-btn env-btn"
-              title="Manage environments"
-            >
-              ⚙️
-            </button>
-            <button 
               @click.stop="openCollectionMenu(collection.id, $event)"
               class="action-btn menu-btn"
               title="Collection options"
@@ -72,91 +65,47 @@
           </div>
         </div>
         
-        <!-- Environment Selector for expanded collections -->
-        <div v-if="expandedCollections.has(collection.id)" class="environment-section">
-          <div class="environment-card">
-            <div class="env-selector-wrapper">
-              <label class="environment-label">Active Environment</label>
-              <div class="custom-select">
-                <select 
-                  :value="getActiveEnvironment(collection.id)?.id || ''"
-                  @change="setActiveEnvironment(collection.id, $event.target.value)"
-                  @click.stop
-                  class="environment-select"
-                >
-                  <option value="" disabled>Select environment</option>
-                  <option 
-                    v-for="env in collection.environments || []"
-                    :key="env.id"
-                    :value="env.id"
-                  >
-                    {{ env.name }}
-                  </option>
-                </select>
-                <span class="select-arrow">▼</span>
-              </div>
-            </div>
-            <div v-if="getActiveEnvironment(collection.id)" class="environment-details">
-              <div class="env-detail-item">
-                <span class="detail-label">Base URL:</span>
-                <span class="detail-value">{{ getActiveEnvironment(collection.id).baseURL }}</span>
-              </div>
-              <div v-if="getActiveEnvironment(collection.id).description" class="env-detail-item">
-                <span class="detail-label">Description:</span>
-                <span class="detail-value">{{ getActiveEnvironment(collection.id).description }}</span>
-              </div>
-            </div>
-            <div v-else class="no-environment">
-              <span class="no-env-text">No environment selected</span>
-              <button 
-                @click.stop="openEnvironmentModal(collection.id)"
-                class="create-env-btn"
+        <!-- Collection Settings (Compact) -->
+        <div v-if="expandedCollections.has(collection.id)" class="collection-settings">
+          <div class="settings-grid">
+            <!-- Environment Selector -->
+            <div class="setting-item">
+              <label class="setting-label">Environment</label>
+              <select 
+                :value="getActiveEnvironment(collection.id)?.id || ''"
+                @change="setActiveEnvironment(collection.id, $event.target.value)"
+                @click.stop
+                class="setting-select"
               >
-                Create Environment
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Header Collection Selector (Compact) -->
-        <div v-if="expandedCollections.has(collection.id)" class="header-section">
-          <div class="header-card compact">
-            <div class="header-selector-wrapper">
-              <label class="header-label">Header Collection</label>
-              <div class="header-selector-row">
-                <div class="custom-select">
-                  <select 
-                    :value="getActiveHeaderCollection(collection.id) || ''"
-                    @change="setActiveHeaderCollection(collection.id, $event.target.value)"
-                    @click.stop
-                    class="header-select"
-                  >
-                    <option value="">Select header collection...</option>
-                    <option 
-                      v-for="headerCollection in headerCollections"
-                      :key="headerCollection.id"
-                      :value="headerCollection.id"
-                    >
-                      {{ headerCollection.name }}
-                    </option>
-                  </select>
-                  <span class="select-arrow">▼</span>
-                </div>
-                <button 
-                  @click.stop="openHeaderManager"
-                  class="manage-headers-btn"
-                  title="Manage header collections"
+                <option value="">None</option>
+                <option 
+                  v-for="env in collection.environments || []"
+                  :key="env.id"
+                  :value="env.id"
                 >
-                  ⚙️
-                </button>
-              </div>
+                  {{ env.name }}
+                </option>
+              </select>
             </div>
-            <div v-if="getActiveHeaderCollection(collection.id)" class="header-preview">
-              <div class="header-count">{{ Object.keys(getActiveHeaderCollectionData(collection.id)?.headers || {}).length }} headers</div>
-              <div class="header-sample">
-                {{ Object.keys(getActiveHeaderCollectionData(collection.id)?.headers || {}).slice(0, 2).join(', ') }}
-                <span v-if="Object.keys(getActiveHeaderCollectionData(collection.id)?.headers || {}).length > 2">...</span>
-              </div>
+            
+            <!-- Header Collection Selector -->
+            <div class="setting-item">
+              <label class="setting-label">Headers</label>
+              <select 
+                :value="activeHeaderCollections.get(collection.id) || ''"
+                @change="setActiveHeaderCollection(collection.id, $event.target.value)"
+                @click.stop
+                class="setting-select"
+              >
+                <option value="">None</option>
+                <option 
+                  v-for="headerCollection in headerCollections"
+                  :key="headerCollection.id"
+                  :value="headerCollection.id"
+                >
+                  {{ headerCollection.name }}
+                </option>
+              </select>
             </div>
           </div>
         </div>
@@ -209,6 +158,15 @@
       :style="{ top: menuPosition.y + 'px', left: menuPosition.x + 'px' }"
       @click.stop
     >
+      <div class="menu-item" @click="openEnvironmentModal(selectedCollectionId)">
+        <span class="menu-icon">⚙️</span>
+        Manage Environments
+      </div>
+      <div class="menu-item" @click="openHeaderSettingsModal(selectedCollectionId)">
+        <span class="menu-icon">📋</span>
+        Manage Headers
+      </div>
+      <div class="menu-divider"></div>
       <div class="menu-item" @click="renameCollection(selectedCollectionId)">
         <span class="menu-icon">✏️</span>
         Rename
@@ -371,6 +329,13 @@
       @confirm="confirmDelete"
       @cancel="cancelDelete"
     />
+    
+    <!-- Header Settings Modal -->
+    <div v-if="showHeaderSettingsModal" class="modal-overlay" @click="closeHeaderSettingsModal">
+      <div class="modal-content header-settings-modal" @click.stop>
+        <HeaderSettings :show="showHeaderSettingsModal" @close="closeHeaderSettingsModal" />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -379,6 +344,7 @@ import { ref, onMounted } from 'vue'
 import { CollectionService } from '../../bindings/captain-api'
 import ConfirmDialog from './ConfirmDialog.vue'
 import RequestLogs from './RequestLogs.vue'
+import HeaderSettings from './HeaderSettings.vue'
 
 const emit = defineEmits(['load-request'])
 
@@ -394,6 +360,7 @@ const newCollection = ref({
 // Header collection management
 const headerCollections = ref([])
 const activeHeaderCollections = ref(new Map()) // collectionId -> headerCollectionId
+const showHeaderSettingsModal = ref(false)
 
 // Environment management
 const showEnvironmentModal = ref(false)
@@ -679,8 +646,17 @@ const setActiveHeaderCollection = (collectionId, headerCollectionId) => {
 
 // Open header manager modal
 const openHeaderManager = () => {
-  // This will be handled by the HeaderSettings component
-  document.dispatchEvent(new CustomEvent('open-header-settings'))
+  showHeaderSettingsModal.value = true
+}
+
+const openHeaderSettingsModal = (collectionId) => {
+  selectedCollectionId.value = collectionId
+  showHeaderSettingsModal.value = true
+}
+
+const closeHeaderSettingsModal = () => {
+  showHeaderSettingsModal.value = false
+  selectedCollectionId.value = ''
 }
 
 // Header manager function removed to simplify the application
@@ -1827,231 +1803,76 @@ defineExpose({
   transition: all 0.2s ease;
 }
 
-.header-section {
-  margin-top: 8px;
+
+
+
+
+/* Collection Settings Styles */
+.collection-settings {
   margin-bottom: 12px;
+  padding: 0 12px;
 }
 
-.header-card {
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
   background: #f8f9fa;
+  border: 1px solid #e9ecef;
   border-radius: 8px;
   padding: 12px;
-  border: 1px solid #e9ecef;
 }
 
-.header-card.compact {
-  padding: 8px 10px;
-}
-
-.header-selector-row {
+.setting-item {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.header-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: #495057;
-  margin-bottom: 6px;
-}
-
-.header-preview {
-  margin-top: 8px;
-  padding: 6px 8px;
-  background: #fff;
-  border-radius: 6px;
-  border: 1px solid #e9ecef;
-  font-size: 12px;
-}
-
-.header-count {
-  font-weight: 600;
-  color: #6f42c1;
-  margin-bottom: 2px;
-}
-
-.header-sample {
-  color: #6c757d;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.header-collection-section:hover {
-  border-color: #d1ecf1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.header-collection-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.header-icon {
-  width: 16px;
-  height: 16px;
-  color: #6f42c1;
-}
-
-.header-selector-wrapper {
-  position: relative;
-  margin-bottom: 0;
-}
-
-.header-collection-selector {
-  width: 100%;
-  padding: 10px 35px 10px 12px;
-  border: 2px solid #e9ecef;
-  border-radius: 8px;
-  background: white;
-  font-size: 13px;
-  color: #495057;
-  transition: all 0.2s ease;
-  appearance: none;
-  cursor: pointer;
-}
-
-.header-collection-selector:focus {
-  outline: none;
-  border-color: #6f42c1;
-  box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.1);
-}
-
-.header-collection-selector:hover {
-  border-color: #6f42c1;
-}
-
-.dropdown-icon {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  color: #6c757d;
-  pointer-events: none;
-}
-
-.header-preview {
-  background: white;
-  border: 1px solid #e9ecef;
-  border-radius: 4px;
-  margin-top: 8px;
-  padding: 8px;
-  font-size: 0.85rem;
-}
-
-.header-preview-title {
-  background: linear-gradient(135deg, #6f42c1 0%, #8e44ad 100%);
-  color: white;
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.preview-icon {
-  width: 14px;
-  height: 14px;
-}
-
-.header-list {
-  max-height: 120px;
-  overflow-y: auto;
-}
-
-.header-item {
-  padding: 10px 12px;
-  border-bottom: 1px solid #f8f9fa;
-  transition: background-color 0.2s ease;
-}
-
-.header-item:last-child {
-  border-bottom: none;
-}
-
-.header-item:hover {
-  background-color: #f8f9fa;
-}
-
-.header-key {
-  margin-bottom: 4px;
-}
-
-.key-badge {
-  display: inline-block;
-  background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
-  color: white;
-  padding: 2px 8px;
-  border-radius: 12px;
+.setting-label {
   font-size: 11px;
   font-weight: 600;
+  color: #6c757d;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.header-value {
-  color: #6c757d;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+.setting-select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  background: white;
   font-size: 12px;
-  background: #f8f9fa;
-  padding: 4px 8px;
-  border-radius: 4px;
-  word-break: break-all;
-  line-height: 1.4;
-}
-
-.manage-headers-btn {
-  background: none;
-  border: none;
+  color: #495057;
   cursor: pointer;
-  font-size: 1rem;
-  padding: 4px;
-  border-radius: 4px;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #6f42c1;
+  transition: all 0.2s ease;
 }
 
-.manage-headers-btn:hover {
-  background: #e9ecef;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.setting-select:hover {
+  border-color: #adb5bd;
 }
 
-.manage-headers-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(111, 66, 193, 0.2);
+.setting-select:focus {
+  outline: none;
+  border-color: #80bdff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
-.btn-icon {
-  width: 16px;
-  height: 16px;
+/* Header Settings Modal Styles */
+.header-settings-modal {
+  width: 90vw;
+  max-width: 1200px;
+  height: 90vh;
+  max-height: 800px;
+  padding: 0;
+  overflow: hidden;
 }
 
-.no-headers {
-  text-align: center;
-  color: #8e9aaf;
-  font-size: 13px;
-  padding: 20px 15px;
+.header-settings-modal .modal-content {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border: 2px dashed #dee2e6;
 }
 
 .empty-icon {

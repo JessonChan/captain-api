@@ -1,11 +1,10 @@
 <template>
   <div class="header-settings">
-    <div class="header-settings-toggle">
-      <button @click="showManageModal = true" class="settings-btn" title="Header Settings">
-        ⚙️
-      </button>
-    </div>
-
+    <button class="settings-btn" @click="$emit('open')" title="Manage Header Collections">
+      <span class="btn-icon">⚙️</span>
+      <span class="btn-text">Headers</span>
+    </button>
+    
     <!-- Header Settings Modal -->
     <div v-if="showManageModal" class="modal-overlay" @click="closeModal">
       <div class="modal-content" @click.stop>
@@ -209,11 +208,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, defineProps, defineEmits } from 'vue'
 import { GetHeaderCollections, AddHeaderTemplate, UpdateHeaderTemplate, DeleteHeaderTemplate } from '../../bindings/captain-api/headerservice'
 
+// Define props and emits
+const props = defineProps({
+  show: {
+    type: Boolean,
+    default: false
+  }
+})
+
+const emit = defineEmits(['close', 'open'])
+
 const headerCollections = ref([])
-const showManageModal = ref(false)
+const showManageModal = computed(() => props.show)
 const editingCollection = ref(null)
 const searchQuery = ref('')
 const sortOption = ref('name-asc') // Default sort option
@@ -532,7 +541,7 @@ const importHeaderCollection = (event) => {
 
 // Close modal
 const closeModal = (e) => {
-  showManageModal.value = false
+  emit('close')
 }
 </script>
 
@@ -546,14 +555,27 @@ const closeModal = (e) => {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1.2rem;
-  padding: 5px;
+  font-size: 1rem;
+  padding: 6px 10px;
   border-radius: 4px;
   transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #4a5568;
 }
 
 .settings-btn:hover {
   background-color: rgba(0, 0, 0, 0.1);
+}
+
+.settings-btn .btn-icon {
+  font-size: 1.2rem;
+}
+
+.settings-btn .btn-text {
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .modal-overlay {

@@ -6,6 +6,8 @@ import CollectionSidebar from './components/CollectionSidebar.vue'
 import EnvironmentSelector from './components/EnvironmentSelector.vue'
 import HeaderSettings from './components/HeaderSettings.vue'
 
+const showHeaderSettings = ref(false)
+
 const response = ref(null)
 const requestBuilderRef = ref(null)
 const collectionSidebarRef = ref(null)
@@ -53,7 +55,7 @@ const handleRequestSaved = () => {
         <div class="header-nav">
           <div class="environment-container">
             <EnvironmentSelector />
-            <HeaderSettings />
+            <HeaderSettings :show="showHeaderSettings" @close="showHeaderSettings = false" @open="showHeaderSettings = true" />
           </div>
         </div>
       </div>
