@@ -342,6 +342,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { CollectionService } from '../../bindings/captain-api'
+import { GetHeaderCollections } from '../../bindings/captain-api/headerservice'
 import ConfirmDialog from './ConfirmDialog.vue'
 import RequestLogs from './RequestLogs.vue'
 import HeaderSettings from './HeaderSettings.vue'
@@ -616,12 +617,40 @@ const deleteEnvironment = async (envId) => {
 // Header collection methods
 const loadHeaderCollections = async () => {
   try {
-    // For now, we'll use mock data since HeaderService bindings aren't generated yet
-    headerCollections.value = [
-      { id: 'auth-headers', name: 'Authentication Headers', headers: { 'Authorization': 'Bearer token', 'X-API-Key': 'api-key' } },
-      { id: 'content-headers', name: 'Content Headers', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' } },
-      { id: 'cors-headers', name: 'CORS Headers', headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE' } }
-    ]
+    const collections = await GetHeaderCollections()
+    
+    // Convert backend format to frontend format
+    headerCollections.value = collections.map(collection => {
+      // Extract headers from headerTemplates if available
+      const headers = {}
+      if (collection.headerTemplates && collection.headerTemplates.length > 0) {
+        // Use the first template's headers
+        const template = collection.headerTemplates[0]
+        if (template && template.headers) {
+          console.log('Template headers:', template.headers,typeof template.headers)
+          Object.entries(template.headers).forEach(([key, value]) => {
+            console.log('list Key:', key, 'Value:', value)
+          })
+          for(let key in template.headers){
+            console.log('in Key:', key, 'Value:', template.headers[key])
+            headers[key]=template.headers[key]
+          }
+          for(let key of template.headers){
+            console.log('of Key:', key.key, 'Value:', key.value)
+          }
+          // Convert each header value to string to prevent [object Object] display
+          Object.entries(template.headers).forEach(([key, value]) => {
+           // headers[key] = typeof value === 'object' ? JSON.stringify(value) : String(value)
+          })
+        }
+      }
+      
+      return {
+        id: collection.id,
+        name: collection.name,
+        headers
+      }
+    })
   } catch (error) {
     console.error('Failed to load header collections:', error)
   }

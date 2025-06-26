@@ -209,7 +209,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed, defineProps, defineEmits } from 'vue'
-import { GetHeaderCollections, AddHeaderTemplate, UpdateHeaderTemplate, DeleteHeaderTemplate } from '../../bindings/captain-api/headerservice'
+import { GetHeaderCollections, CreateHeaderCollection, UpdateHeaderCollection, DeleteHeaderCollection, AddHeaderTemplate, UpdateHeaderTemplate, DeleteHeaderTemplate } from '../../bindings/captain-api/headerservice'
 
 // Define props and emits
 const props = defineProps({
@@ -284,31 +284,29 @@ onUnmounted(() => {
 // Load header collections from backend
 const loadHeaderCollections = async () => {
   try {
-    // For now, we'll use mock data since HeaderService bindings might not be fully implemented
-    headerCollections.value = [
-      { 
-        id: 'auth-headers', 
-        name: 'Authentication Headers', 
-        description: 'Common authentication headers',
-        headers: [{ key: 'Authorization', value: 'Bearer token' }, { key: 'X-API-Key', value: 'api-key' }] 
-      },
-      { 
-        id: 'content-headers', 
-        name: 'Content Headers', 
-        description: 'Content type headers',
-        headers: [{ key: 'Content-Type', value: 'application/json' }, { key: 'Accept', value: 'application/json' }] 
-      },
-      { 
-        id: 'cors-headers', 
-        name: 'CORS Headers', 
-        description: 'Cross-origin resource sharing headers',
-        headers: [{ key: 'Access-Control-Allow-Origin', value: '*' }, { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE' }] 
-      }
-    ]
+    const collections = await GetHeaderCollections()
     
-    // Uncomment when backend is ready
-    // const collections = await GetHeaderCollections()
-    // headerCollections.value = collections
+    // Convert backend format to frontend format
+    headerCollections.value = collections.map(collection => {
+      // Extract headers from headerTemplates if available
+      const headers = []
+      if (collection.headerTemplates && collection.headerTemplates.length > 0) {
+        // Use the first template's headers
+        const template = collection.headerTemplates[0]
+        if (template && template.headers) {
+          Object.entries(template.headers).forEach(([key, value]) => {
+            headers.push({ key, value })
+          })
+        }
+      }
+      
+      return {
+        id: collection.id,
+        name: collection.name,
+        description: collection.description,
+        headers
+      }
+    })
   } catch (error) {
     console.error('Failed to load header collections:', error)
   }
@@ -396,29 +394,40 @@ const saveHeaderCollection = async () => {
       }
     })
     
-    const collection = {
-      id: editingCollection.value?.id || '',
-      name: formData.value.name.trim(),
+    // Create a header template from the headers
+    const template = {
+      id: editingCollection.value?.id ? `${editingCollection.value.id}_template` : '',
+      name: `${formData.value.name.trim()} Template`,
       description: formData.value.description.trim(),
       headers: headersObject
     }
     
+    // Create the collection with the template
+    const collection = {
+      id: editingCollection.value?.id || '',
+      name: formData.value.name.trim(),
+      description: formData.value.description.trim(),
+      headerTemplates: [template]
+    }
+    
     if (editingCollection.value) {
       // Update existing collection
-      // await UpdateHeaderCollection(collection)
+      await UpdateHeaderCollection(collection)
       
       // Update in local array
       const index = headerCollections.value.findIndex(c => c.id === collection.id)
       if (index !== -1) {
-        headerCollections.value[index] = collection
+        headerCollections.value[index] = {
+          ...collection,
+          headers: formData.value.headers
+        }
       }
     } else {
       // Create new collection
-      // const newCollection = await AddHeaderCollection(collection)
+      await CreateHeaderCollection(collection)
       
-      // Add to local array with mock ID
-      collection.id = 'header_col_' + Date.now()
-      headerCollections.value.push(collection)
+      // Reload collections to get the server-generated ID
+      await loadHeaderCollections()
     }
     
     // Reset form
@@ -439,7 +448,7 @@ const deleteHeaderCollection = async (collectionId) => {
   
   if (confirmDelete) {
     try {
-      // await DeleteHeaderCollection(collectionId)
+      await DeleteHeaderCollection(collectionId)
       
       // Remove from local array
       headerCollections.value = headerCollections.value.filter(c => c.id !== collectionId)
