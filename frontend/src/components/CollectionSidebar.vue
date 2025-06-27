@@ -1063,7 +1063,8 @@ defineExpose({
 
 .header-actions {
   display: flex;
-  gap: 8px;
+  gap: 4px;
+  flex-direction: column;
 }
 
 .sidebar-header h3 {
@@ -1075,8 +1076,8 @@ defineExpose({
 .new-collection-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: 3px;
+  padding: 4px 8px;
   border: none;
   background: #007bff;
   color: white;
