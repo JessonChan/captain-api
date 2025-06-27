@@ -164,6 +164,31 @@ const headersObject = computed(() => {
   return headers
 })
 
+// Update headers object from headers list and ensure it's in sync with the request
+function updateHeadersObject() {
+  const headers = {}
+  headersList.value.forEach(({ key, value }) => {
+    if (key) {
+      headers[key] = value
+    }
+  })
+  
+  // Update the reactive objects
+  headersObject.value = { ...headers }
+  
+  // Also update the request headers to ensure consistency
+  if (request.value) {
+    request.value.headers = { ...headers }
+  }
+  
+  return { ...headers }
+}
+
+// Watch for changes in the headers list and update the headers object
+watch(headersList, (newHeaders) => {
+  updateHeadersObject()
+}, { deep: true })
+
 // Watch body type changes
 watch(bodyType, (newType) => {
   if (newType === 'json') {
@@ -289,9 +314,17 @@ const sendRequest = async () => {
 
 // Save request to collection
 async function saveRequest() {
+  // If we're saving an existing request, update it instead
+  if (currentRequestId.value) {
+    return updateRequest()
+  }
+
+  // Generate a default name if none provided
   if (!requestName.value) {
-    alert('Request name is required.')
-    return
+    const url = new URL(request.value.url, 'http://dummy.com') // Create URL to parse path
+    const pathParts = url.pathname.split('/').filter(Boolean)
+    const lastPart = pathParts[pathParts.length - 1] || 'request'
+    requestName.value = `${request.value.method} ${lastPart}`.toUpperCase()
   }
 
   const requestToSave = {
@@ -299,67 +332,130 @@ async function saveRequest() {
     method: request.value.method,
     url: request.value.url,
     headers: headersObject.value,
-    body: request.value.body
+    body: request.value.body,
+    description: ''
   }
 
+  console.log('Saving request:', requestToSave)
+  
   try {
     const newRequest = await CollectionService.SaveRequest(props.collectionId, requestToSave)
+    console.log('Save successful, new request:', newRequest)
+    
+    // Update the current request ID
     currentRequestId.value = newRequest.id
+    
+    // Update the request name in case it was auto-generated
+    requestName.value = newRequest.name
+    
+    // Notify parent components
+    console.log('Emitting request-saved event')
     Events.Emit('request-saved')
     emit('request-saved')
+    
     alert('Request saved successfully!')
   } catch (error) {
     console.error('Failed to save request:', error)
-    alert(`Error: ${error.message}`)
+    alert(`Error saving request: ${error.message || 'Unknown error'}`)
   }
 }
 
 async function updateRequest() {
   if (!currentRequestId.value) {
-    alert('No request loaded to update.')
+    console.log('No current request ID, redirecting to save')
+    return saveRequest()
+  }
+
+  // Ensure we have the latest headers
+  updateHeadersObject()
+  
+  if (!requestName.value) {
+    alert('Request name is required.')
     return
   }
 
+  // Get the current timestamp for updatedAt
+  const now = new Date().toISOString()
+  
+  // Create the complete request object with all required fields
   const requestToUpdate = {
     id: currentRequestId.value,
     name: requestName.value,
     method: request.value.method,
     url: request.value.url,
-    headers: headersObject.value,
-    body: request.value.body
+    headers: { ...headersObject.value }, // Create a new object to ensure reactivity
+    body: request.value.body,
+    description: '',
+    updatedAt: now,
+    // Preserve the original createdAt if it exists
+    ...(originalRequest.value?.createdAt && { createdAt: originalRequest.value.createdAt })
   }
 
+  console.log('Updating request with data:', requestToUpdate)
+  
   try {
+    // First try to update the request
     await CollectionService.UpdateRequest(props.collectionId, currentRequestId.value, requestToUpdate)
+    console.log('Update successful, emitting request-saved event')
+    
+    // Update the original request with the new data
+    if (originalRequest.value) {
+      Object.assign(originalRequest.value, requestToUpdate)
+    }
+    
+    // Notify parent components
     Events.Emit('request-saved')
     emit('request-saved')
+    
+    // Show success message
     alert('Request updated successfully!')
   } catch (error) {
     console.error('Failed to update request:', error)
-    alert(`Error: ${error.message}`)
+    alert(`Error updating request: ${error.message || 'Unknown error'}`)
   }
 }
 
+// Reference to the original request data
+const originalRequest = ref(null)
+
 // Load request from props
 const loadRequest = (requestData) => {
+  console.log('Loading request data:', requestData)
+  
+  // Store the original request data for reference
+  originalRequest.value = { ...requestData }
+  
   // Set basic request data first (without body)
   request.value = {
     method: requestData.method || 'GET',
     url: requestData.url || '',
-    headers: requestData.headers || {},
-    body: ''
+    headers: { ...(requestData.headers || {}) },
+    body: requestData.body || ''
+  }
+  
+  // Set the current request ID and name
+  currentRequestId.value = requestData.id || ''
+  if (requestData.name) {
+    requestName.value = requestData.name
   }
 
   // Convert headers object to list
-  headersList.value = Object.entries(request.value.headers).map(([key, value]) => ({ key, value }))
+  const headers = requestData.headers || {}
+  headersList.value = Object.entries(headers).map(([key, value]) => ({ 
+    key, 
+    value: String(value) 
+  }))
+  
+  // Always ensure there's at least one header row
   if (headersList.value.length === 0) {
     headersList.value = [{ key: '', value: '' }]
   }
 
-  // Set body type first to avoid watcher conflicts
+  // Set body type based on content
   const bodyContent = requestData.body || ''
   if (bodyContent) {
     try {
+      // Try to parse as JSON to determine if it's valid JSON
       JSON.parse(bodyContent)
       bodyType.value = 'json'
     } catch {
@@ -368,6 +464,14 @@ const loadRequest = (requestData) => {
   } else {
     bodyType.value = 'none'
   }
+  
+  console.log('Finished loading request. Current state:', {
+    request: request.value,
+    requestName: requestName.value,
+    currentRequestId: currentRequestId.value,
+    headers: headersList.value,
+    bodyType: bodyType.value
+  })
 
   // Set body content after body type is set
   request.value.body = bodyContent

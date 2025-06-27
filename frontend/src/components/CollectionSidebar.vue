@@ -544,16 +544,57 @@ const menuPosition = ref({ x: 0, y: 0 })
 const confirmDialog = ref(null)
 const requestLogsRef = ref(null)
 let pendingDeleteRequest = null
-let unsubscribeRequestSaved
+// Track event subscriptions
+const eventSubscriptions = []
 
 onMounted(() => {
+  console.log('CollectionSidebar mounted, loading collections...')
   loadCollections()
   loadHeaderCollections()
   document.addEventListener('click', closeMenu)
 
-  unsubscribeRequestSaved = Events.On('request-saved', () => {
-    loadCollections()
+  // Setup event listeners
+  console.log('Setting up event listeners')
+  
+  // Handle request-saved event
+  const requestSavedUnsubscribe = Events.On('request-saved', async () => {
+    console.log('request-saved event received, reloading collections...')
+    await loadCollections()
+    
+    // Small delay to ensure UI has updated
+    setTimeout(() => {
+      // Emit an event to notify other components that collections were updated
+      Events.Emit('collections-updated')
+    }, 100)
   })
+  
+  if (requestSavedUnsubscribe) {
+    eventSubscriptions.push(requestSavedUnsubscribe)
+  }
+  
+  // Handle collections-updated event (in case another component updates collections)
+  const collectionsUpdatedUnsubscribe = Events.On('collections-updated', async () => {
+    console.log('collections-updated event received, reloading collections...')
+    await loadCollections()
+  })
+  
+  if (collectionsUpdatedUnsubscribe) {
+    eventSubscriptions.push(collectionsUpdatedUnsubscribe)
+  }
+})
+
+// Clean up event listeners
+onUnmounted(() => {
+  console.log('CollectionSidebar unmounted, cleaning up event listeners')
+  document.removeEventListener('click', closeMenu)
+  
+  // Unsubscribe from all events
+  eventSubscriptions.forEach(unsubscribe => {
+    if (typeof unsubscribe === 'function') {
+      unsubscribe()
+    }
+  })
+  eventSubscriptions.length = 0
 })
 
 onUnmounted(() => {
@@ -563,16 +604,44 @@ onUnmounted(() => {
   }
 })
 
-// Load collections on mount
+// Load collections and update the UI
 async function loadCollections() {
+  console.log('Loading collections...')
   try {
     const allCollections = await CollectionService.GetAllCollections()
-    collections.value = allCollections
+    console.log('Fetched collections:', allCollections)
+    
+    // Update the collections array in a way that triggers Vue's reactivity
+    collections.value = [...allCollections]
     
     // Create default collection if none exist
     if (collections.value.length === 0) {
+      console.log('No collections found, creating default collection...')
       await CollectionService.CreateCollection('Default Collection', 'Default collection for requests')
-      await loadCollections()
+      await loadCollections() // Recursively load after creating default collection
+      return
+    }
+    
+    console.log('Collections loaded successfully:', collections.value)
+    
+    // If there's a selected collection, ensure it's still valid
+    if (selectedCollectionId.value) {
+      const collectionExists = collections.value.some(c => c.id === selectedCollectionId.value)
+      if (!collectionExists && collections.value.length > 0) {
+        selectedCollectionId.value = collections.value[0].id
+      }
+    } else if (collections.value.length > 0) {
+      selectedCollectionId.value = collections.value[0].id
+    }
+    
+    // Force update the selected request if needed
+    if (selectedRequestId.value) {
+      const requestExists = collections.value.some(c => 
+        c.requests && c.requests.some(r => r.id === selectedRequestId.value)
+      )
+      if (!requestExists) {
+        selectedRequestId.value = ''
+      }
     }
   } catch (error) {
     console.error('Failed to load collections:', error)

@@ -43,8 +43,6 @@ type RequestItem struct {
 	UpdatedAt   time.Time         `json:"updatedAt"`
 }
 
-
-
 // CollectionEnvironment represents an environment within a collection
 type CollectionEnvironment struct {
 	ID          string `json:"id"`
@@ -66,7 +64,7 @@ type Collection struct {
 }
 
 // SaveRequest saves a request to a collection
-func (c *CollectionService) SaveRequest(ctx context.Context, collectionID string, request RequestItem) error {
+func (c *CollectionService) SaveRequest(ctx context.Context, collectionID string, request RequestItem) (RequestItem, error) {
 	// Generate ID if not provided
 	if request.ID == "" {
 		request.ID = fmt.Sprintf("req_%d", time.Now().UnixNano())
@@ -107,7 +105,63 @@ func (c *CollectionService) SaveRequest(ctx context.Context, collectionID string
 
 	collection.UpdatedAt = time.Now()
 
-	return c.saveCollection(collection)
+	if err := c.saveCollection(collection); err != nil {
+		return RequestItem{}, fmt.Errorf("failed to save collection: %w", err)
+	}
+
+	// Return the saved request
+	for _, req := range collection.Requests {
+		if req.ID == request.ID {
+			return req, nil
+		}
+	}
+
+	return request, nil
+}
+
+// UpdateRequest updates an existing request in a collection
+func (c *CollectionService) UpdateRequest(ctx context.Context, collectionID string, requestID string, request RequestItem) (RequestItem, error) {
+	// Load the collection
+	collection, err := c.GetCollection(ctx, collectionID)
+	if err != nil {
+		return RequestItem{}, fmt.Errorf("failed to get collection: %w", err)
+	}
+
+	// Find the request to update
+	found := false
+	for i, req := range collection.Requests {
+		if req.ID == requestID {
+			// Update the request while preserving the created_at timestamp
+			createdAt := collection.Requests[i].CreatedAt
+			// Ensure we don't change the request ID
+			request.ID = requestID
+			collection.Requests[i] = request
+			collection.Requests[i].CreatedAt = createdAt
+			collection.Requests[i].UpdatedAt = time.Now()
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return RequestItem{}, fmt.Errorf("request with ID %s not found in collection %s", requestID, collectionID)
+	}
+
+	// Save the updated collection
+	collection.UpdatedAt = time.Now()
+	if err := c.saveCollection(collection); err != nil {
+		return RequestItem{}, fmt.Errorf("failed to save collection: %w", err)
+	}
+
+	// Return the updated request
+	for _, req := range collection.Requests {
+		if req.ID == requestID {
+			return req, nil
+		}
+	}
+
+	// This should never happen since we just updated the request
+	return request, nil
 }
 
 // GetCollection retrieves a collection by ID
@@ -249,7 +303,7 @@ func (c *CollectionService) GetActiveCollectionEnvironment(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	
+
 	for _, env := range collection.Environments {
 		if env.IsActive {
 			return &env, nil
@@ -264,7 +318,7 @@ func (c *CollectionService) SetActiveCollectionEnvironment(ctx context.Context, 
 	if err != nil {
 		return err
 	}
-	
+
 	found := false
 	for i := range collection.Environments {
 		if collection.Environments[i].ID == envID {
@@ -274,11 +328,11 @@ func (c *CollectionService) SetActiveCollectionEnvironment(ctx context.Context, 
 			collection.Environments[i].IsActive = false
 		}
 	}
-	
+
 	if !found {
 		return fmt.Errorf("environment with ID %s not found in collection %s", envID, collectionID)
 	}
-	
+
 	collection.UpdatedAt = time.Now()
 	return c.saveCollection(collection)
 }
@@ -289,24 +343,24 @@ func (c *CollectionService) AddCollectionEnvironment(ctx context.Context, collec
 	if err != nil {
 		return err
 	}
-	
+
 	// Generate ID if not provided
 	if env.ID == "" {
 		env.ID = fmt.Sprintf("env_%d", time.Now().UnixNano())
 	}
-	
+
 	// Check if ID already exists
 	for _, existing := range collection.Environments {
 		if existing.ID == env.ID {
 			return fmt.Errorf("environment with ID %s already exists in collection %s", env.ID, collectionID)
 		}
 	}
-	
+
 	// If this is the first environment, make it active
 	if len(collection.Environments) == 0 {
 		env.IsActive = true
 	}
-	
+
 	collection.Environments = append(collection.Environments, env)
 	collection.UpdatedAt = time.Now()
 	return c.saveCollection(collection)
@@ -318,7 +372,7 @@ func (c *CollectionService) UpdateCollectionEnvironment(ctx context.Context, col
 	if err != nil {
 		return err
 	}
-	
+
 	for i, existing := range collection.Environments {
 		if existing.ID == env.ID {
 			// Preserve the IsActive state
@@ -328,7 +382,7 @@ func (c *CollectionService) UpdateCollectionEnvironment(ctx context.Context, col
 			return c.saveCollection(collection)
 		}
 	}
-	
+
 	return fmt.Errorf("environment with ID %s not found in collection %s", env.ID, collectionID)
 }
 
@@ -338,28 +392,28 @@ func (c *CollectionService) DeleteCollectionEnvironment(ctx context.Context, col
 	if err != nil {
 		return err
 	}
-	
+
 	// Don't allow deleting the last environment
 	if len(collection.Environments) == 1 {
 		return fmt.Errorf("cannot delete the last environment in collection %s", collectionID)
 	}
-	
+
 	for i, env := range collection.Environments {
 		if env.ID == envID {
 			wasActive := env.IsActive
-			
+
 			// Remove environment
 			collection.Environments = append(collection.Environments[:i], collection.Environments[i+1:]...)
-			
+
 			// If deleted environment was active, make the first one active
 			if wasActive && len(collection.Environments) > 0 {
 				collection.Environments[0].IsActive = true
 			}
-			
+
 			collection.UpdatedAt = time.Now()
 			return c.saveCollection(collection)
 		}
 	}
-	
+
 	return fmt.Errorf("environment with ID %s not found in collection %s", envID, collectionID)
 }
