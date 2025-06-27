@@ -314,11 +314,6 @@ const sendRequest = async () => {
 
 // Save request to collection
 async function saveRequest() {
-  // If we're saving an existing request, update it instead
-  if (currentRequestId.value) {
-    return updateRequest()
-  }
-
   // Generate a default name if none provided
   if (!requestName.value) {
     const url = new URL(request.value.url, 'http://dummy.com') // Create URL to parse path
