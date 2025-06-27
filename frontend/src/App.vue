@@ -3,10 +3,6 @@ import { ref } from 'vue'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
 import CollectionSidebar from './components/CollectionSidebar.vue'
-import EnvironmentSelector from './components/EnvironmentSelector.vue'
-import HeaderSettings from './components/HeaderSettings.vue'
-
-const showHeaderSettings = ref(false)
 
 const response = ref(null)
 const requestBuilderRef = ref(null)
@@ -55,12 +51,6 @@ const handleNewRequest = () => {
         </div>
         <div class="header-subtitle">
           A Postman-like API client built with Wails3 + Vue
-        </div>
-        <div class="header-nav">
-          <div class="environment-container">
-            <EnvironmentSelector />
-            <HeaderSettings :show="showHeaderSettings" @close="showHeaderSettings = false" @open="showHeaderSettings = true" />
-          </div>
         </div>
       </div>
     </header>
@@ -177,6 +167,13 @@ body {
     align-items: center;
     margin-top: 10px;
   }
+}
+
+.header-content{
+  gap: 20px;
+  padding: 0 100px;
+  display: flex;
+  justify-content: initial;
 }
 
 .logo-section {
