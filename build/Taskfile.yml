@@ -17,7 +17,7 @@ tasks:
       - node_modules/*
     preconditions:
       - sh: bun --version
-        msg: "Looks like npm isn't installed. Npm is part of the Node installer: https://nodejs.org/en/download/"
+        msg: "run `npm install -g bun` to install bun"
     cmds:
       - bun install
 
