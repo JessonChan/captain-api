@@ -53,12 +53,26 @@
           <pre class="response-body">{{ displayBody }}</pre>
         </div>
 
-        <!-- Headers Tab -->
-        <div v-if="activeTab === 'Headers'" class="headers-section">
+        <!-- Request Headers Tab -->
+        <div v-if="activeTab === 'Request Headers'" class="headers-section">
           <div class="headers-list">
             <div 
-              v-for="(value, key) in response.headers" 
-              :key="key"
+              v-for="(value, key) in response.requestHeaders || {}" 
+              :key="'req-' + key"
+              class="header-item"
+            >
+              <span class="header-key">{{ key }}:</span>
+              <span class="header-value">{{ value }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Response Headers Tab -->
+        <div v-if="activeTab === 'Response Headers'" class="headers-section">
+          <div class="headers-list">
+            <div 
+              v-for="(value, key) in response.headers || {}" 
+              :key="'res-' + key"
               class="header-item"
             >
               <span class="header-key">{{ key }}:</span>
@@ -88,7 +102,7 @@ const props = defineProps({
 })
 
 const activeTab = ref('Body')
-const responseTabs = ref(['Body', 'Headers', 'Raw'])
+const responseTabs = ref(['Body', 'Request Headers', 'Response Headers', 'Raw'])
 const formattedBody = ref('')
 const isFormatted = ref(false)
 

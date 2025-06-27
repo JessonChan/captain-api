@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"strings"
 	"time"
 )
@@ -52,12 +55,13 @@ type HTTPRequest struct {
 
 // HTTPResponse represents an HTTP response structure
 type HTTPResponse struct {
-	StatusCode int               `json:"statusCode"`
-	Status     string            `json:"status"`
-	Headers    map[string]string `json:"headers"`
-	Body       string            `json:"body"`
-	Duration   int64             `json:"duration"` // in milliseconds
-	Size       int64             `json:"size"`     // response size in bytes
+	StatusCode    int               `json:"statusCode"`
+	Status        string            `json:"status"`
+	Headers       map[string]string `json:"headers"`
+	RequestHeaders map[string]string `json:"requestHeaders"`
+	Body          string            `json:"body"`
+	Duration      int64             `json:"duration"` // in milliseconds
+	Size          int64             `json:"size"`     // response size in bytes
 }
 
 // SendRequest sends an HTTP request and returns the response
@@ -140,14 +144,34 @@ func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (*HTTPRe
 		headers[key] = strings.Join(values, ", ")
 	}
 
+	// Capture the final request headers, including those added by the client
+	// by dumping the request and parsing the headers back.
+	// We dump without the body to avoid consuming the body reader.
+	dump, err := httputil.DumpRequestOut(httpReq, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dump request for header capture: %w", err)
+	}
+
+	reader := bufio.NewReader(bytes.NewReader(dump))
+	parsedReq, err := http.ReadRequest(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse dumped request: %w", err)
+	}
+
+	reqHeaders := make(map[string]string)
+	for key, values := range parsedReq.Header {
+		reqHeaders[key] = strings.Join(values, ", ")
+	}
+
 	// Create response object
 	response := &HTTPResponse{
-		StatusCode: resp.StatusCode,
-		Status:     resp.Status,
-		Headers:    headers,
-		Body:       string(bodyBytes),
-		Duration:   duration,
-		Size:       int64(len(bodyBytes)),
+		StatusCode:    resp.StatusCode,
+		Status:        resp.Status,
+		Headers:       headers,
+		RequestHeaders: reqHeaders,
+		Body:          string(bodyBytes),
+		Duration:      duration,
+		Size:          int64(len(bodyBytes)),
 	}
 
 	// Log the request and response
