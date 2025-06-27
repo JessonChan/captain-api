@@ -547,6 +547,9 @@ let pendingDeleteRequest = null
 // Track event subscriptions
 const eventSubscriptions = []
 
+
+const selectedRequestId = ref('')
+
 onMounted(() => {
   console.log('CollectionSidebar mounted, loading collections...')
   loadCollections()
@@ -556,31 +559,23 @@ onMounted(() => {
   // Setup event listeners
   console.log('Setting up event listeners')
   
-  // Handle request-saved event
-  const requestSavedUnsubscribe = Events.On('request-saved', async () => {
+  Events.On('request-saved', async () => {
     console.log('request-saved event received, reloading collections...')
     await loadCollections()
     
     // Small delay to ensure UI has updated
     setTimeout(() => {
       // Emit an event to notify other components that collections were updated
-      Events.Emit('collections-updated')
+      // Events.Emit('collections-updated')
     }, 100)
   })
   
-  if (requestSavedUnsubscribe) {
-    eventSubscriptions.push(requestSavedUnsubscribe)
-  }
   
   // Handle collections-updated event (in case another component updates collections)
   const collectionsUpdatedUnsubscribe = Events.On('collections-updated', async () => {
     console.log('collections-updated event received, reloading collections...')
     await loadCollections()
   })
-  
-  if (collectionsUpdatedUnsubscribe) {
-    eventSubscriptions.push(collectionsUpdatedUnsubscribe)
-  }
 })
 
 // Clean up event listeners
@@ -875,9 +870,6 @@ const loadHeaderCollections = async () => {
             console.log('in Key:', key, 'Value:', template.headers[key])
             headers[key]=template.headers[key]
           }
-          for(let key of template.headers){
-            console.log('of Key:', key.key, 'Value:', key.value)
-          }
           // Convert each header value to string to prevent [object Object] display
           Object.entries(template.headers).forEach(([key, value]) => {
            // headers[key] = typeof value === 'object' ? JSON.stringify(value) : String(value)
@@ -930,6 +922,12 @@ const closeHeaderSettingsModal = () => {
 
 // Header manager function removed to simplify the application
 
+// Close menu when clicking outside
+const closeMenu = () => {
+  showCollectionMenu.value = false
+  document.removeEventListener('click', closeMenu)
+}
+
 // Collection menu methods
 const openCollectionMenu = (collectionId, event) => {
   selectedCollectionId.value = collectionId
@@ -938,12 +936,6 @@ const openCollectionMenu = (collectionId, event) => {
     y: event.clientY
   }
   showCollectionMenu.value = true
-  
-  // Close menu when clicking outside
-  const closeMenu = () => {
-    showCollectionMenu.value = false
-    document.removeEventListener('click', closeMenu)
-  }
   setTimeout(() => {
     document.addEventListener('click', closeMenu)
   }, 0)

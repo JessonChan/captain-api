@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	_ "embed"
+	"fmt"
 	"log"
 	"time"
 
@@ -28,9 +29,11 @@ func main() {
 	// 'Bind' is a list of Go struct instances. The frontend has access to the methods of these instances.
 	// 'Mac' options tailor the application when running an macOS.
 	// Create shared services
+	eventChannel := make(chan customEvent)
 	envService := NewEnvironmentService()
 	collectionService := NewCollectionService()
 	headerService := NewHeaderService()
+	busService := NewEventBusService(eventChannel)
 
 	app := application.New(application.Options{
 		Name:        "captain-api",
@@ -41,6 +44,7 @@ func main() {
 			application.NewService(collectionService),
 			application.NewService(envService),
 			application.NewService(headerService),
+			application.NewService(busService),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -49,6 +53,13 @@ func main() {
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
 	})
+
+	go func() {
+		for event := range eventChannel {
+			fmt.Println("Emitting event from EventBusService:", event.Name, event.Data)
+			app.EmitEvent(event.Name, event.Data)
+		}
+	}()
 
 	// Create a new window with the necessary options.
 	// 'Title' is the title of the window.

@@ -106,7 +106,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { HTTPService, CollectionService } from '../../bindings/captain-api'
+import { HTTPService, CollectionService, EventBusService } from '../../bindings/captain-api'
 import { Events } from '@wailsio/runtime'
 
 const props = defineProps({
@@ -350,10 +350,7 @@ async function saveRequest() {
     
     // Notify parent components
     console.log('Emitting request-saved event')
-    Events.Emit('request-saved')
-    emit('request-saved')
-    
-    alert('Request saved successfully!')
+    EventBusService.EmitEvent('request-saved')
   } catch (error) {
     console.error('Failed to save request:', error)
     alert(`Error saving request: ${error.message || 'Unknown error'}`)
@@ -397,21 +394,14 @@ async function updateRequest() {
     // First try to update the request
     await CollectionService.UpdateRequest(props.collectionId, currentRequestId.value, requestToUpdate)
     console.log('Update successful, emitting request-saved event')
-    
+    // Notify parent components
+    EventBusService.EmitEvent('request-saved')
     // Update the original request with the new data
     if (originalRequest.value) {
       Object.assign(originalRequest.value, requestToUpdate)
     }
-    
-    // Notify parent components
-    Events.Emit('request-saved')
-    emit('request-saved')
-    
-    // Show success message
-    alert('Request updated successfully!')
   } catch (error) {
     console.error('Failed to update request:', error)
-    alert(`Error updating request: ${error.message || 'Unknown error'}`)
   }
 }
 
