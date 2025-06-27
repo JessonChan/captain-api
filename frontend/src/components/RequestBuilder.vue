@@ -9,7 +9,8 @@
           placeholder="Request name (optional)"
           class="name-input"
         />
-        <button @click="saveRequest" class="save-btn">Save Request</button>
+        <button @click="updateRequest" :disabled="!currentRequestId" class="save-btn">Save</button>
+        <button @click="saveRequest" class="save-btn">Save As</button>
       </div>
       
       <div class="method-url-row">
@@ -106,6 +107,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { HTTPService, CollectionService } from '../../bindings/captain-api'
+import { Events } from '@wailsio/runtime'
 
 const props = defineProps({
   collectionId: {
@@ -129,6 +131,7 @@ const tabs = ref(['Headers', 'Body'])
 const loading = ref(false)
 const bodyType = ref('none')
 const requestName = ref('')
+const currentRequestId = ref(null)
 const isValidJSON = ref(true)
 const jsonValidationMessage = ref('')
 const jsonValidationClass = ref('')
@@ -285,24 +288,55 @@ const sendRequest = async () => {
 }
 
 // Save request to collection
-const saveRequest = async () => {
-  try {
-    const requestItem = {
-      id: '',
-      name: requestName.value || `${request.value.url}`,
-      method: request.value.method,
-      url: request.value.url,
-      headers: headersObject.value,
-      body: bodyType.value === 'none' ? '' : request.value.body,
-      description: ''
-    }
+async function saveRequest() {
+  if (!requestName.value) {
+    alert('Request name is required.')
+    return
+  }
 
-    await CollectionService.SaveRequest(props.collectionId, requestItem)
+  const requestToSave = {
+    name: requestName.value,
+    method: request.value.method,
+    url: request.value.url,
+    headers: headersObject.value,
+    body: request.value.body
+  }
+
+  try {
+    const newRequest = await CollectionService.SaveRequest(props.collectionId, requestToSave)
+    currentRequestId.value = newRequest.id
+    Events.Emit('request-saved')
+    emit('request-saved')
     alert('Request saved successfully!')
-    requestName.value = ''
   } catch (error) {
     console.error('Failed to save request:', error)
-    alert('Failed to save request')
+    alert(`Error: ${error.message}`)
+  }
+}
+
+async function updateRequest() {
+  if (!currentRequestId.value) {
+    alert('No request loaded to update.')
+    return
+  }
+
+  const requestToUpdate = {
+    id: currentRequestId.value,
+    name: requestName.value,
+    method: request.value.method,
+    url: request.value.url,
+    headers: headersObject.value,
+    body: request.value.body
+  }
+
+  try {
+    await CollectionService.UpdateRequest(props.collectionId, currentRequestId.value, requestToUpdate)
+    Events.Emit('request-saved')
+    emit('request-saved')
+    alert('Request updated successfully!')
+  } catch (error) {
+    console.error('Failed to update request:', error)
+    alert(`Error: ${error.message}`)
   }
 }
 
@@ -339,7 +373,21 @@ const loadRequest = (requestData) => {
   request.value.body = bodyContent
 }
 
-defineExpose({ loadRequest })
+function newRequest() {
+  request.value = {
+    method: 'GET',
+    url: '',
+    headers: {},
+    body: ''
+  }
+  headersList.value = [{ key: '', value: '' }]
+  bodyType.value = 'none'
+  requestName.value = ''
+  currentRequestId.value = null
+  activeTab.value = 'Headers'
+}
+
+defineExpose({ loadRequest, newRequest })
 </script>
 
 <style scoped>

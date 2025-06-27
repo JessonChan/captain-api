@@ -22,22 +22,26 @@ const handleResponseReceived = async (responseData) => {
 }
 
 const handleLoadRequest = (logData) => {
+  // Always clear the response viewer when loading a new request
+  response.value = null
+
   if (requestBuilderRef.value) {
     // Handle both old format (direct request) and new format (with request and response)
     const requestData = logData.request || logData
     requestBuilderRef.value.loadRequest(requestData)
-    
-    // If response data is available, set it
+
+    // If response data is available (e.g., from logs), set it after clearing
     if (logData.response) {
       response.value = logData.response
     }
   }
 }
 
-const handleRequestSaved = () => {
-  if (collectionSidebarRef.value) {
-    collectionSidebarRef.value.refresh()
+const handleNewRequest = () => {
+  if (requestBuilderRef.value) {
+    requestBuilderRef.value.newRequest()
   }
+  response.value = null
 }
 </script>
 
@@ -68,6 +72,7 @@ const handleRequestSaved = () => {
           <CollectionSidebar 
             ref="collectionSidebarRef"
             @load-request="handleLoadRequest"
+            @new-request="handleNewRequest"
           />
         </aside>
 
@@ -79,7 +84,6 @@ const handleRequestSaved = () => {
               ref="requestBuilderRef"
               :collectionId="currentCollectionId"
               @response-received="handleResponseReceived"
-              @request-saved="handleRequestSaved"
             />
           </section>
 

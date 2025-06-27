@@ -17,16 +17,24 @@
           Logs
         </button>
       </div>
-      <div  class="header-actions">
+      <div class="header-actions">
+        <button 
+          @click="$emit('new-request')" 
+          class="new-collection-btn"
+          title="Create new request"
+          :disabled="currentView === 'logs'"
+        >
+          <span class="btn-icon">+</span>
+          <span class="btn-text">Request</span>
+        </button>
         <button 
           @click="showNewCollectionModal = true" 
           class="new-collection-btn"
           title="Create new collection"
           :disabled="currentView === 'logs'"
-          :class="['new-collection-btn', { active: currentView === 'collections' }]"
         >
           <span class="btn-icon">+</span>
-          <span class="btn-text">New</span>
+          <span class="btn-text">Collection</span>
         </button>
       </div>
     </div>
@@ -184,7 +192,7 @@
         <span class="menu-icon">🗑️</span>
         Delete
       </div>
-    </div>
+    
 
     <!-- Logs View -->
     <RequestLogs 
@@ -336,18 +344,171 @@
         <HeaderSettings :show="showHeaderSettingsModal" @close="closeHeaderSettingsModal" />
       </div>
     </div>
+
+<!-- Logs View -->
+<RequestLogs 
+  v-if="currentView === 'logs'"
+  ref="requestLogsRef"
+  @load-request="loadRequest"
+/>
+
+<!-- New Collection Modal -->
+<div v-if="showNewCollectionModal" class="modal-overlay" @click="closeModal">
+  <div class="modal" @click.stop>
+    <div class="modal-header">
+      <h4>Create New Collection</h4>
+      <button @click="closeModal" class="close-btn">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Collection Name</label>
+        <input 
+          v-model="newCollection.name" 
+          type="text" 
+          placeholder="Enter collection name"
+          class="form-input"
+          @keyup.enter="createCollection"
+        />
+      </div>
+      <div class="form-group">
+        <label>Description (optional)</label>
+        <textarea 
+          v-model="newCollection.description" 
+          placeholder="Enter description"
+          class="form-textarea"
+          rows="3"
+        ></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button @click="closeModal" class="cancel-btn">Cancel</button>
+      <button @click="createCollection" class="create-btn">Create</button>
+    </div>
   </div>
+</div>
+  
+<!-- Environment Management Modal -->
+<div v-if="showEnvironmentModal" class="modal-overlay" @click="closeEnvironmentModal">
+  <div class="modal environment-modal" @click.stop>
+    <div class="modal-header">
+      <h4>Manage Environments - {{ getCollectionName(selectedCollectionId) }}</h4>
+      <button @click="closeEnvironmentModal" class="close-btn">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="environments-list">
+        <div 
+          v-for="env in currentEnvironments"
+          :key="env.id"
+          class="environment-item"
+          :class="{ active: env.isActive }"
+        >
+          <div class="env-info">
+            <div class="env-name">{{ env.name }}</div>
+            <div class="env-url">{{ env.baseURL }}</div>
+            <div class="env-description">{{ env.description }}</div>
+          </div>
+          <div class="env-actions">
+            <button 
+              v-if="!env.isActive"
+              @click="activateEnvironment(env.id)"
+              class="activate-btn"
+            >
+              Activate
+            </button>
+            <button 
+              @click="editEnvironment(env)"
+              class="edit-btn"
+            >
+              Edit
+            </button>
+            <button 
+              v-if="currentEnvironments.length > 1"
+              @click="deleteEnvironment(env.id)"
+              class="delete-env-btn"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="add-environment">
+        <button @click="showAddEnvironmentForm" class="add-env-btn">
+          + Add Environment
+        </button>
+      </div>
+      
+      <!-- Add/Edit Environment Form -->
+      <div v-if="showEnvForm" class="env-form">
+        <h5>{{ editingEnvironment ? 'Edit' : 'Add' }} Environment</h5>
+        <div class="form-group">
+          <label>Name</label>
+          <input 
+            v-model="envForm.name" 
+            type="text" 
+            placeholder="Environment name"
+            class="form-input"
+          />
+        </div>
+        <div class="form-group">
+          <label>Base URL</label>
+          <input 
+            v-model="envForm.baseURL" 
+            type="text" 
+            placeholder="https://api.example.com"
+            class="form-input"
+          />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input 
+            v-model="envForm.description" 
+            type="text" 
+            placeholder="Environment description"
+            class="form-input"
+          />
+        </div>
+        
+        <div class="form-actions">
+          <button @click="cancelEnvForm" class="cancel-btn">Cancel</button>
+          <button @click="saveEnvironment" class="save-btn">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+  
+<!-- Confirm Dialog -->
+<ConfirmDialog
+  ref="confirmDialog"
+  title="Delete Request"
+  message="Are you sure you want to delete this request? This action cannot be undone."
+  confirm-text="Delete"
+  cancel-text="Cancel"
+  @confirm="confirmDelete"
+  @cancel="cancelDelete"
+/>
+  
+<!-- Header Settings Modal -->
+<div v-if="showHeaderSettingsModal" class="modal-overlay" @click="closeHeaderSettingsModal">
+  <div class="modal-content header-settings-modal" @click.stop>
+    <HeaderSettings :show="showHeaderSettingsModal" @close="closeHeaderSettingsModal" />
+  </div>
+</div>
+</div>
+</div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { CollectionService } from '../../bindings/captain-api'
 import { GetHeaderCollections } from '../../bindings/captain-api/headerservice'
 import ConfirmDialog from './ConfirmDialog.vue'
 import RequestLogs from './RequestLogs.vue'
+import { Events } from '@wailsio/runtime'
 import HeaderSettings from './HeaderSettings.vue'
 
-const emit = defineEmits(['load-request'])
+const emit = defineEmits(['load-request', 'new-request'])
 
 const currentView = ref('collections')
 const collections = ref([])
@@ -376,8 +537,6 @@ const envForm = ref({
   description: ''
 })
 
-
-
 // Collection menu
 const showCollectionMenu = ref(false)
 const menuPosition = ref({ x: 0, y: 0 })
@@ -385,15 +544,27 @@ const menuPosition = ref({ x: 0, y: 0 })
 const confirmDialog = ref(null)
 const requestLogsRef = ref(null)
 let pendingDeleteRequest = null
+let unsubscribeRequestSaved
 
-// Load collections on mount
-onMounted(async () => {
-  await loadCollections()
-  await loadHeaderCollections()
+onMounted(() => {
+  loadCollections()
+  loadHeaderCollections()
+  document.addEventListener('click', closeMenu)
+
+  unsubscribeRequestSaved = Events.On('request-saved', () => {
+    loadCollections()
+  })
 })
 
-// Methods
-const loadCollections = async () => {
+onUnmounted(() => {
+  document.removeEventListener('click', closeMenu)
+  if (unsubscribeRequestSaved) {
+    unsubscribeRequestSaved()
+  }
+})
+
+// Load collections on mount
+async function loadCollections() {
   try {
     const allCollections = await CollectionService.GetAllCollections()
     collections.value = allCollections
