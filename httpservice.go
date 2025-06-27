@@ -158,23 +158,7 @@ func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (*HTTPRe
 	return response, nil
 }
 
-// FormatJSON formats JSON string for better readability
-func (h *HTTPService) FormatJSON(jsonStr string) (string, error) {
-	var obj interface{}
-	err := json.Unmarshal([]byte(jsonStr), &obj)
-	if err != nil {
-		return jsonStr, err // Return original if not valid JSON
-	}
-
-	formatted, err := json.MarshalIndent(obj, "", "  ")
-	if err != nil {
-		return jsonStr, err
-	}
-
-	return string(formatted), nil
-}
-
-// ValidateURL checks if the URL is valid
+// ValidateURL checks if a URL is valid
 func (h *HTTPService) ValidateURL(url string) bool {
 	if url == "" {
 		return false

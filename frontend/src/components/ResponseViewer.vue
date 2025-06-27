@@ -98,6 +98,11 @@ watch(() => props.response, (newResponse) => {
     activeTab.value = 'Body'
     formattedBody.value = ''
     isFormatted.value = false
+    
+    // Auto-format based on content type header
+    if (newResponse?.headers && shouldAutoFormat(newResponse.headers)) {
+      formatResponse()
+    }
   }
 }, { immediate: true })
 
@@ -150,12 +155,20 @@ const formatSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-const formatResponse = async () => {
+const shouldAutoFormat = (headers) => {
+  const contentType = Object.entries(headers).find(([key, value]) => 
+    key.toLowerCase() === 'content-type' && value.includes('json')
+  )
+  return !!contentType
+}
+
+const formatResponse = () => {
   if (!canFormat.value) return
   
   try {
-    const formatted = await HTTPService.FormatJSON(props.response.body)
-    formattedBody.value = formatted
+    // Format JSON using the built-in JSON methods
+    const parsed = JSON.parse(props.response.body)
+    formattedBody.value = JSON.stringify(parsed, null, 2)
     isFormatted.value = true
   } catch (error) {
     console.error('Failed to format JSON:', error)
