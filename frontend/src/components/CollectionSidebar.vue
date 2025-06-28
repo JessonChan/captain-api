@@ -27,15 +27,6 @@
           <span class="btn-icon">+</span>
           <span class="btn-text">Request</span>
         </button>
-        <button 
-          @click="showNewCollectionModal = true" 
-          class="new-collection-btn"
-          title="Create new collection"
-          :disabled="currentView === 'logs'"
-        >
-          <span class="btn-icon">+</span>
-          <span class="btn-text">Collection</span>
-        </button>
       </div>
     </div>
 
@@ -192,7 +183,7 @@
         <span class="menu-icon">🗑️</span>
         Delete
       </div>
-    
+    </div>
 
     <!-- Logs View -->
     <RequestLogs 
@@ -344,159 +335,30 @@
         <HeaderSettings :show="showHeaderSettingsModal" @close="closeHeaderSettingsModal" />
       </div>
     </div>
-
-<!-- Logs View -->
-<RequestLogs 
-  v-if="currentView === 'logs'"
-  ref="requestLogsRef"
-  @load-request="loadRequest"
-/>
-
-<!-- New Collection Modal -->
-<div v-if="showNewCollectionModal" class="modal-overlay" @click="closeModal">
-  <div class="modal" @click.stop>
-    <div class="modal-header">
-      <h4>Create New Collection</h4>
-      <button @click="closeModal" class="close-btn">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>Collection Name</label>
-        <input 
-          v-model="newCollection.name" 
-          type="text" 
-          placeholder="Enter collection name"
-          class="form-input"
-          @keyup.enter="createCollection"
-        />
-      </div>
-      <div class="form-group">
-        <label>Description (optional)</label>
-        <textarea 
-          v-model="newCollection.description" 
-          placeholder="Enter description"
-          class="form-textarea"
-          rows="3"
-        ></textarea>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button @click="closeModal" class="cancel-btn">Cancel</button>
-      <button @click="createCollection" class="create-btn">Create</button>
+    
+    <!-- Fixed Add Collection Button at Bottom -->
+    <div class="sidebar-footer" v-if="currentView === 'collections'">
+      <button 
+        @click="showNewCollectionModal = true" 
+        class="create-collection-btn"
+        title="Create new collection"
+      >
+        <span class="btn-icon">+</span>
+        <span class="btn-text">Create Collection</span>
+      </button>
     </div>
   </div>
-</div>
   
-<!-- Environment Management Modal -->
-<div v-if="showEnvironmentModal" class="modal-overlay" @click="closeEnvironmentModal">
-  <div class="modal environment-modal" @click.stop>
-    <div class="modal-header">
-      <h4>Manage Environments - {{ getCollectionName(selectedCollectionId) }}</h4>
-      <button @click="closeEnvironmentModal" class="close-btn">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="environments-list">
-        <div 
-          v-for="env in currentEnvironments"
-          :key="env.id"
-          class="environment-item"
-          :class="{ active: env.isActive }"
-        >
-          <div class="env-info">
-            <div class="env-name">{{ env.name }}</div>
-            <div class="env-url">{{ env.baseURL }}</div>
-            <div class="env-description">{{ env.description }}</div>
-          </div>
-          <div class="env-actions">
-            <button 
-              v-if="!env.isActive"
-              @click="activateEnvironment(env.id)"
-              class="activate-btn"
-            >
-              Activate
-            </button>
-            <button 
-              @click="editEnvironment(env)"
-              class="edit-btn"
-            >
-              Edit
-            </button>
-            <button 
-              v-if="currentEnvironments.length > 1"
-              @click="deleteEnvironment(env.id)"
-              class="delete-env-btn"
-            >
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <div class="add-environment">
-        <button @click="showAddEnvironmentForm" class="add-env-btn">
-          + Add Environment
-        </button>
-      </div>
-      
-      <!-- Add/Edit Environment Form -->
-      <div v-if="showEnvForm" class="env-form">
-        <h5>{{ editingEnvironment ? 'Edit' : 'Add' }} Environment</h5>
-        <div class="form-group">
-          <label>Name</label>
-          <input 
-            v-model="envForm.name" 
-            type="text" 
-            placeholder="Environment name"
-            class="form-input"
-          />
-        </div>
-        <div class="form-group">
-          <label>Base URL</label>
-          <input 
-            v-model="envForm.baseURL" 
-            type="text" 
-            placeholder="https://api.example.com"
-            class="form-input"
-          />
-        </div>
-        <div class="form-group">
-          <label>Description</label>
-          <input 
-            v-model="envForm.description" 
-            type="text" 
-            placeholder="Environment description"
-            class="form-input"
-          />
-        </div>
-        
-        <div class="form-actions">
-          <button @click="cancelEnvForm" class="cancel-btn">Cancel</button>
-          <button @click="saveEnvironment" class="save-btn">Save</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-  
-<!-- Confirm Dialog -->
-<ConfirmDialog
-  ref="confirmDialog"
-  title="Delete Request"
-  message="Are you sure you want to delete this request? This action cannot be undone."
-  confirm-text="Delete"
-  cancel-text="Cancel"
-  @confirm="confirmDelete"
-  @cancel="cancelDelete"
-/>
-  
-<!-- Header Settings Modal -->
-<div v-if="showHeaderSettingsModal" class="modal-overlay" @click="closeHeaderSettingsModal">
-  <div class="modal-content header-settings-modal" @click.stop>
-    <HeaderSettings :show="showHeaderSettingsModal" @close="closeHeaderSettingsModal" />
-  </div>
-</div>
-</div>
-</div>
+  <!-- Confirm Dialog -->
+  <ConfirmDialog
+    ref="confirmDialog"
+    title="Delete Request"
+    message="Are you sure you want to delete this request? This action cannot be undone."
+    confirm-text="Delete"
+    cancel-text="Cancel"
+    @confirm="confirmDelete"
+    @cancel="cancelDelete"
+  />
 </template>
 
 <script setup>
@@ -1501,6 +1363,48 @@ defineExpose({
   color: #6c757d;
   font-size: 14px;
   line-height: 1.5;
+}
+
+/* Fixed bottom button styles */
+.sidebar-footer {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px;
+  background: white;
+  border-top: 1px solid #f0f0f0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  z-index: 10;
+  margin-top: auto;
+}
+
+.create-collection-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.create-collection-btn:hover {
+  background: #0069d9;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.create-collection-btn .btn-icon {
+  font-size: 16px;
+  font-weight: bold;
 }
 
 .empty-action-btn {
