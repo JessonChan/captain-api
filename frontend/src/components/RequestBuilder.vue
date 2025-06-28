@@ -9,8 +9,12 @@
           placeholder="Request name (optional)"
           class="name-input"
         />
-        <button @click="updateRequest" :disabled="!isDirty" class="save-btn">Save</button>
-        <button @click="saveRequest" class="save-btn">Clone</button>
+        <button @click="updateRequest" :disabled="!isDirty" class="btn btn--save" :class="{ 'is-disabled': !isDirty }">
+          Save
+        </button>
+        <button @click="saveRequest" class="btn btn--clone">
+          Clone
+        </button>
       </div>
       
       <div class="method-url-row">
@@ -664,22 +668,61 @@ defineExpose({ loadRequest, newRequest })
   border-radius: 4px;
 }
 
-.save-btn {
+// Button styles
+$btn-colors: (
+  save: (
+    default: #17a2b8,
+    hover: #138496,
+    disabled: #ccc
+  ),
+  clone: (
+    default: #6c757d,
+    hover: #5a6268,
+    disabled: #d1d5db
+  )
+);
+
+// Base button styles
+.btn {
   padding: 8px 16px;
-  background: #17a2b8;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-}
-
-.save-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-.save-btn:hover {
-  background: #138496;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
+  
+  // Disabled state for all buttons
+  &:disabled,
+  &.is-disabled,
+  &.disabled {
+    opacity: 0.7;
+  }
+  
+  // Generate button variants using @each loop
+  $variants: (save, clone);
+  
+  @each $variant in $variants {
+    &--#{$variant} {
+      background: map-get(map-get($btn-colors, $variant), default);
+      
+      &:hover:not(:disabled) {
+        background: map-get(map-get($btn-colors, $variant), hover);
+      }
+      
+      &:disabled,
+      &.is-disabled,
+      &.disabled {
+        background: map-get(map-get($btn-colors, $variant), disabled);
+        cursor: not-allowed;
+      }
+    }
+  }
 }
 
 /* JSON-specific styles */
