@@ -208,7 +208,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, defineProps, defineEmits } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { GetHeaderCollections, CreateHeaderCollection, UpdateHeaderCollection, DeleteHeaderCollection, AddHeaderTemplate, UpdateHeaderTemplate, DeleteHeaderTemplate } from '../../bindings/captain-api/headerservice'
 
 // Define props and emits

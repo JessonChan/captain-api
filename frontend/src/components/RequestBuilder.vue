@@ -382,7 +382,36 @@ async function saveRequest() {
     description: ''
   }
 
-  console.log('Saving request:', requestToSave)
+  try {
+    loading.value = true
+    console.log('Saving request:', requestToSave)
+    
+    // Call the backend service to save the request
+    const savedRequest = await CollectionService.SaveRequest(props.collectionId, requestToSave)
+
+    console.log('Request saved successfully:', savedRequest)
+    
+    // Update the current request ID if we get one back
+    if (savedRequest && savedRequest.id) {
+      currentRequestId.value = savedRequest.id
+    }
+    
+    // Update the original request snapshot to reflect the saved state
+    originalRequest.value = { ...request.value }
+    originalRequestSnapshot.value = createSnapshot(request.value, requestName.value, headersList)
+    
+    // Notify the parent component that the request was saved
+    // emit('request-saved', savedRequest)
+    EventBusService.EmitEvent('request-saved', savedRequest)
+    
+    return savedRequest
+  } catch (error) {
+    console.error('Failed to save request:', error)
+    // You might want to show an error message to the user here
+    throw error
+  } finally {
+    loading.value = false
+  }
 }
   
 async function updateRequest() {
@@ -563,6 +592,7 @@ defineExpose({ loadRequest, newRequest })
 
 
 <style scoped lang="scss">
+@use "sass:map";
 .request-builder {
   background: white;
   border-radius: 8px;
@@ -755,16 +785,16 @@ $btn-colors: (
   
   @each $variant in $variants {
     &--#{$variant} {
-      background: map-get(map-get($btn-colors, $variant), default);
+      background: map.get(map.get($btn-colors, $variant), default);
       
       &:hover:not(:disabled) {
-        background: map-get(map-get($btn-colors, $variant), hover);
+        background: map.get(map.get($btn-colors, $variant), hover);
       }
       
       &:disabled,
       &.is-disabled,
       &.disabled {
-        background: map-get(map-get($btn-colors, $variant), disabled);
+        background: map.get(map.get($btn-colors, $variant), disabled);
         cursor: not-allowed;
       }
     }
