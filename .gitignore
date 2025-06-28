@@ -92,3 +92,8 @@ frontend/bindings/captain-api/*.js
 frontend/bindings/time/*.js
 !frontend/bindings/captain-api/
 !frontend/bindings/time/
+
+.windsurf
+.vscode
+.idea
+.cursor

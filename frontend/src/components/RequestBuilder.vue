@@ -9,8 +9,8 @@
           placeholder="Request name (optional)"
           class="name-input"
         />
-        <button @click="updateRequest" :disabled="!currentRequestId" class="save-btn">Save</button>
-        <button @click="saveRequest" class="save-btn">Save As</button>
+        <button @click="updateRequest" :disabled="!isDirty" class="save-btn">Save</button>
+        <button @click="saveRequest" class="save-btn">Clone</button>
       </div>
       
       <div class="method-url-row">
@@ -342,6 +342,10 @@ async function saveRequest() {
     
     // Update the request name in case it was auto-generated
     requestName.value = newRequest.name
+
+    // Update the original request and snapshot to reflect the new saved state
+    originalRequest.value = { ...newRequest }
+    originalRequestSnapshot.value = createSnapshot(request.value, requestName.value, headersList)
     
     // Notify parent components
     console.log('Emitting request-saved event')
@@ -391,10 +395,9 @@ async function updateRequest() {
     console.log('Update successful, emitting request-saved event')
     // Notify parent components
     EventBusService.EmitEvent('request-saved')
-    // Update the original request with the new data
-    if (originalRequest.value) {
-      Object.assign(originalRequest.value, requestToUpdate)
-    }
+    // Update the original request and snapshot
+    originalRequest.value = { ...requestToUpdate }
+    originalRequestSnapshot.value = createSnapshot(request.value, requestName.value, headersList)
   } catch (error) {
     console.error('Failed to update request:', error)
   }
@@ -402,13 +405,43 @@ async function updateRequest() {
 
 // Reference to the original request data
 const originalRequest = ref(null)
+const originalRequestSnapshot = ref('')
+
+const createSnapshot = (req, name, headersList) => {
+  console.log('Creating snapshot for request:', req)
+  const headers = {}
+  headersList.value.forEach(h => {
+    if (h.key) headers[h.key] = h.value
+  })
+  const sortedHeaders = Object.keys(headers).sort().reduce((obj, key) => {
+    obj[key] = headers[key]
+    return obj
+  }, {})
+
+  const json = JSON.stringify({
+    name,
+    method: req.method,
+    url: req.url,
+    headers: sortedHeaders,
+    body: req.body,
+  })
+  console.log('Snapshot created:', json)
+  return json
+}
+
+const isDirty = computed(() => {
+  if (!originalRequest.value) return false
+  const currentSnapshot = createSnapshot(request.value, requestName.value, headersList)
+  return currentSnapshot !== originalRequestSnapshot.value
+})
 
 // Load request from props
 const loadRequest = (requestData) => {
   console.log('Loading request data:', requestData)
   
-  // Store the original request data for reference
+  // Store the original request data and create a snapshot
   originalRequest.value = { ...requestData }
+  originalRequestSnapshot.value = createSnapshot(requestData, requestData.name, headersList)
   
   // Set basic request data first (without body)
   request.value = {
@@ -479,7 +512,7 @@ function newRequest() {
 defineExpose({ loadRequest, newRequest })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .request-builder {
   background: white;
   border-radius: 8px;
@@ -638,6 +671,11 @@ defineExpose({ loadRequest, newRequest })
   border: none;
   border-radius: 4px;
   cursor: pointer;
+}
+
+.save-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
 }
 
 .save-btn:hover {
