@@ -120,7 +120,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['response-received'])
+const emit = defineEmits(['response-received', 'request-updated'])
 
 const request = ref({
   method: 'GET',
@@ -191,24 +191,37 @@ function updateHeadersObject() {
 // Watch for changes in the headers list and update the headers object
 watch(headersList, (newHeaders) => {
   updateHeadersObject()
+  emitRequestUpdate()
 }, { deep: true })
 
 // Watch body type changes
 watch(bodyType, (newType) => {
   if (newType === 'json') {
-    if (!request.value.body) {
-      request.value.body = '{\n  \n}'
-    }
-    // Auto-set Content-Type header for JSON
-    const hasContentType = headersList.value.some(h => 
-      h.key.toLowerCase() === 'content-type'
-    )
+    // Add Content-Type header for JSON
+    const hasContentType = headersList.value.some(h => h.key === 'Content-Type')
     if (!hasContentType) {
       headersList.value.push({ key: 'Content-Type', value: 'application/json' })
+    } else {
+      // Update existing Content-Type header
+      const index = headersList.value.findIndex(h => h.key === 'Content-Type')
+      if (index !== -1) {
+        headersList.value[index].value = 'application/json'
+      }
     }
-  } else if (newType === 'none') {
-    request.value.body = ''
-    // Remove Content-Type header if it was auto-added
+  } else if (newType === 'text') {
+    // Add Content-Type header for text
+    const hasContentType = headersList.value.some(h => h.key === 'Content-Type')
+    if (!hasContentType) {
+      headersList.value.push({ key: 'Content-Type', value: 'text/plain' })
+    } else {
+      // Update existing Content-Type header
+      const index = headersList.value.findIndex(h => h.key === 'Content-Type')
+      if (index !== -1) {
+        headersList.value[index].value = 'text/plain'
+      }
+    }
+  } else {
+    // Remove Content-Type header for none
     const index = headersList.value.findIndex(h => 
       h.key === 'Content-Type' && h.value === 'application/json'
     )
@@ -216,7 +229,49 @@ watch(bodyType, (newType) => {
       headersList.value.splice(index, 1)
     }
   }
+  
+  // Emit request update when body type changes
+  emitRequestUpdate()
 })
+
+const isRequestDirty = () => {
+  return request.value.url !== '' || request.value.method !== 'GET' || request.value.body !== ''
+}
+
+// Watch for URL changes
+watch(() => request.value.url, () => {
+  isDirty.value = isRequestDirty()
+  emitRequestUpdate()
+})
+
+// Watch for method changes
+watch(() => request.value.method, () => {
+  isDirty.value = isRequestDirty()
+  emitRequestUpdate()
+})
+
+// Watch for body changes
+watch(() => request.value.body, () => {
+  isDirty.value = isRequestDirty()
+  emitRequestUpdate()
+})
+
+// Emit request updates to parent for tab management
+const emitRequestUpdate = () => {
+  // Ensure headers are synchronized before emitting
+  updateHeadersObject()
+  
+  emit('request-updated', {
+    request: {
+      method: request.value.method,
+      url: request.value.url,
+      headers: headersObject.value,
+      body: request.value.body
+    },
+    name: requestName.value,
+    bodyType: bodyType.value
+  })
+}
 
 // Validate JSON format
 const validateJSON = (jsonString) => {
@@ -289,28 +344,43 @@ const sendRequest = async () => {
   }
 
   loading.value = true
-  
   try {
-    const requestData = {
+    // Ensure headers are synchronized from the UI list
+    updateHeadersObject()
+    
+    // Prepare body based on body type
+    const bodyContent = bodyType.value === 'none' ? '' : request.value.body
+    
+    // Create a request object with synchronized headers
+    const requestToSend = {
       method: request.value.method,
       url: request.value.url,
       headers: headersObject.value,
-      body: bodyType.value === 'none' ? '' : request.value.body,
-      collectionId: props.collectionId
+      body: bodyContent
     }
 
-    const response = await HTTPService.SendRequest(requestData)
+    const response = await HTTPService.SendRequest(requestToSend)
+
+    // Emit the response to the parent component
     emit('response-received', response)
+
+    // Publish event for logs to refresh
+    // Events.Emit('request-sent')
+    EventBusService.EmitEvent('request-sent', response)
   } catch (error) {
     console.error('Request failed:', error)
-    emit('response-received', {
+    
+    // Create an error response object
+    const errorResponse = {
       statusCode: 0,
-      status: 'Error',
+      statusText: 'Error',
       headers: {},
-      body: error.message || 'Request failed',
-      duration: 0,
-      size: 0
-    })
+      body: JSON.stringify({ error: error.message || 'Unknown error occurred' }),
+      error: error.message || 'Unknown error occurred'
+    }
+    
+    // Emit the error response
+    emit('response-received', errorResponse)
   } finally {
     loading.value = false
   }
@@ -336,30 +406,8 @@ async function saveRequest() {
   }
 
   console.log('Saving request:', requestToSave)
-  
-  try {
-    const newRequest = await CollectionService.SaveRequest(props.collectionId, requestToSave)
-    console.log('Save successful, new request:', newRequest)
-    
-    // Update the current request ID
-    currentRequestId.value = newRequest.id
-    
-    // Update the request name in case it was auto-generated
-    requestName.value = newRequest.name
-
-    // Update the original request and snapshot to reflect the new saved state
-    originalRequest.value = { ...newRequest }
-    originalRequestSnapshot.value = createSnapshot(request.value, requestName.value, headersList)
-    
-    // Notify parent components
-    console.log('Emitting request-saved event')
-    EventBusService.EmitEvent('request-saved')
-  } catch (error) {
-    console.error('Failed to save request:', error)
-    alert(`Error saving request: ${error.message || 'Unknown error'}`)
-  }
 }
-
+  
 async function updateRequest() {
   if (!currentRequestId.value) {
     console.log('No current request ID, redirecting to save')
@@ -427,7 +475,7 @@ const createSnapshot = (req, name, headersList) => {
     method: req.method,
     url: req.url,
     headers: sortedHeaders,
-    body: req.body,
+    body: req.body
   })
   console.log('Snapshot created:', json)
   return json
@@ -445,7 +493,6 @@ const loadRequest = (requestData) => {
   
   // Store the original request data and create a snapshot
   originalRequest.value = { ...requestData }
-  originalRequestSnapshot.value = createSnapshot(requestData, requestData.name, headersList)
   
   // Set basic request data first (without body)
   request.value = {
@@ -487,6 +534,12 @@ const loadRequest = (requestData) => {
     bodyType.value = 'none'
   }
   
+  // Set body content after body type is set
+  request.value.body = bodyContent
+  
+  // Create snapshot after all values are set
+  originalRequestSnapshot.value = createSnapshot(request.value, requestName.value, headersList)
+  
   console.log('Finished loading request. Current state:', {
     request: request.value,
     requestName: requestName.value,
@@ -494,27 +547,43 @@ const loadRequest = (requestData) => {
     headers: headersList.value,
     bodyType: bodyType.value
   })
-
-  // Set body content after body type is set
-  request.value.body = bodyContent
+  
+  // Emit request-updated event to sync with parent component's tab state
+  emitRequestUpdate()
 }
 
 function newRequest() {
+  // Reset request data
   request.value = {
     method: 'GET',
     url: '',
     headers: {},
     body: ''
   }
+  
+  // Reset UI state
   headersList.value = [{ key: '', value: '' }]
   bodyType.value = 'none'
   requestName.value = ''
   currentRequestId.value = null
   activeTab.value = 'Headers'
+  
+  // Reset validation state
+  isValidJSON.value = true
+  jsonValidationMessage.value = ''
+  jsonValidationClass.value = ''
+  
+  // Reset dirty state tracking
+  originalRequest.value = { ...request.value }
+  originalRequestSnapshot.value = createSnapshot(request.value, requestName.value, headersList)
+  
+  // Notify parent component of the reset
+  emitRequestUpdate()
 }
 
 defineExpose({ loadRequest, newRequest })
 </script>
+
 
 <style scoped lang="scss">
 .request-builder {

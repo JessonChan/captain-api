@@ -1,16 +1,40 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
 import CollectionSidebar from './components/CollectionSidebar.vue'
 
-const response = ref(null)
-const requestBuilderRef = ref(null)
+// Tabs management
+const tabs = ref([
+  { id: 'tab-1', name: 'New Request', active: true, request: null, response: null }
+])
+const activeTabId = ref('tab-1')
+const tabCounter = ref(2)
+
+// References
+const requestBuilderRefs = ref({})
 const collectionSidebarRef = ref(null)
 const currentCollectionId = ref('default')
 
+// Computed properties
+const activeTab = computed(() => tabs.value.find(tab => tab.id === activeTabId.value))
+const activeResponse = computed(() => activeTab.value?.response)
+
 const handleResponseReceived = async (responseData) => {
-  response.value = responseData
+  // Update the response for the active tab
+  const index = tabs.value.findIndex(tab => tab.id === activeTabId.value)
+  if (index !== -1) {
+    tabs.value[index].response = responseData
+    
+    // Update tab name with status code if available
+    if (responseData && responseData.statusCode) {
+      // Only append status code if it's not already in the name
+      if (!tabs.value[index].name.includes(`[${responseData.statusCode}]`)) {
+        tabs.value[index].name = `${tabs.value[index].name} [${responseData.statusCode}]`
+      }
+    }
+  }
+  
   // Refresh logs after a request is made
   if (collectionSidebarRef.value && collectionSidebarRef.value.requestLogsRef) {
     await collectionSidebarRef.value.requestLogsRef.loadLogs()
@@ -18,26 +42,197 @@ const handleResponseReceived = async (responseData) => {
 }
 
 const handleLoadRequest = (logData) => {
-  // Always clear the response viewer when loading a new request
-  response.value = null
+  // Handle both old format (direct request) and new format (with request and response)
+  const requestData = logData.request || logData
+  const requestUrl = requestData.url || ''
+  const method = requestData.method || 'GET'
+  
+  // Generate a meaningful tab name
+  let tabName = ''
+  if (requestData.name) {
+    tabName = requestData.name
+  } else {
+    // Extract endpoint from URL
+    const urlParts = requestUrl.split('/')
+    const endpoint = urlParts.length > 0 ? urlParts[urlParts.length - 1] : ''
+    
+    if (endpoint) {
+      tabName = `${method} ${endpoint}`
+    } else if (requestUrl) {
+      // Use the domain if endpoint is not available
+      try {
+        const url = new URL(requestUrl)
+        tabName = `${method} ${url.hostname}`
+      } catch {
+        tabName = `${method} Request`
+      }
+    } else {
+      tabName = `${method} Request`
+    }
+  }
+  
+  // Check if there's already a tab with this URL
+  const existingTabIndex = tabs.value.findIndex(tab => {
+    return tab.request && tab.request.url === requestUrl
+  })
+  
+  if (existingTabIndex !== -1) {
+    // If tab with this URL exists, switch to it
+    switchTab(tabs.value[existingTabIndex].id)
+    
+    // Update the request if needed (might have different headers, body, etc.)
+    const existingTabBuilder = requestBuilderRefs.value[tabs.value[existingTabIndex].id]
+    if (existingTabBuilder) {
+      existingTabBuilder.loadRequest(requestData)
+      
+      // If response data is available (e.g., from logs), set it
+      if (logData.response) {
+        tabs.value[existingTabIndex].response = logData.response
+        
+        // Update tab name with status code if available
+        if (logData.response.statusCode) {
+          tabs.value[existingTabIndex].name = `${tabName} [${logData.response.statusCode}]`
+        } else {
+          tabs.value[existingTabIndex].name = tabName
+        }
+      } else {
+        tabs.value[existingTabIndex].name = tabName
+      }
+    }
+  } else {
+    // Create a new tab for this request
+    addNewTab(requestData, logData.response)
+  }
+}
 
-  if (requestBuilderRef.value) {
-    // Handle both old format (direct request) and new format (with request and response)
-    const requestData = logData.request || logData
-    requestBuilderRef.value.loadRequest(requestData)
-
-    // If response data is available (e.g., from logs), set it after clearing
-    if (logData.response) {
-      response.value = logData.response
+// Handle request updates from RequestBuilder
+const handleRequestUpdated = (data) => {
+  const index = tabs.value.findIndex(tab => tab.id === activeTabId.value)
+  if (index !== -1) {
+    // Store a deep copy of the request object in the tab
+    tabs.value[index].request = JSON.parse(JSON.stringify(data.request))
+    
+    // Update tab name based on request data if no custom name is provided
+    if (!data.name) {
+      const urlParts = data.request.url?.split('/') || []
+      const endpoint = urlParts.length > 0 ? urlParts[urlParts.length - 1] : ''
+      const method = data.request.method || 'GET'
+      
+      // Create a meaningful tab name
+      if (endpoint) {
+        tabs.value[index].name = `${method} ${endpoint}`
+      } else if (data.request.url) {
+        // Use the domain if endpoint is not available
+        try {
+          const url = new URL(data.request.url)
+          tabs.value[index].name = `${method} ${url.hostname}`
+        } catch {
+          tabs.value[index].name = `${method} Request`
+        }
+      } else {
+        tabs.value[index].name = `${method} Request`
+      }
+      
+      // If there's a status code in the tab name, preserve it
+      const statusMatch = tabs.value[index].name.match(/\[(\d+)\]$/)
+      if (statusMatch && tabs.value[index].response) {
+        tabs.value[index].name = `${tabs.value[index].name} [${tabs.value[index].response.statusCode}]`
+      }
+    } else {
+      // Use the custom name provided
+      tabs.value[index].name = data.name
     }
   }
 }
 
 const handleNewRequest = () => {
-  if (requestBuilderRef.value) {
-    requestBuilderRef.value.newRequest()
+  // Create a new tab
+  addNewTab()
+}
+
+const addNewTab = (requestData = null, responseData = null) => {
+  const newTabId = `tab-${tabCounter.value}`
+  tabCounter.value++
+  
+  // Deactivate all tabs
+  tabs.value.forEach(tab => tab.active = false)
+  
+  // Create tab name if request data is provided
+  let tabName = 'New Request'
+  if (requestData && requestData.url) {
+    const urlParts = requestData.url.split('/') || []
+    const endpoint = urlParts.length > 0 ? urlParts[urlParts.length - 1] : ''
+    tabName = endpoint || `${requestData.method || 'GET'} Request`
   }
-  response.value = null
+  
+  // Add new tab
+  tabs.value.push({
+    id: newTabId,
+    name: tabName,
+    active: true,
+    request: requestData,
+    response: responseData
+  })
+  
+  // Set the new tab as active
+  activeTabId.value = newTabId
+  
+  // Initialize the request builder in the next tick
+  setTimeout(() => {
+    if (requestBuilderRefs.value[newTabId]) {
+      if (requestData) {
+        requestBuilderRefs.value[newTabId].loadRequest(requestData)
+      } else {
+        requestBuilderRefs.value[newTabId].newRequest()
+      }
+    }
+  }, 0)
+}
+
+const switchTab = (tabId) => {
+  // Deactivate all tabs
+  tabs.value.forEach(tab => tab.active = false)
+  
+  // Activate the selected tab
+  const index = tabs.value.findIndex(tab => tab.id === tabId)
+  if (index !== -1) {
+    tabs.value[index].active = true
+    activeTabId.value = tabId
+  }
+}
+
+const closeTab = (tabId, event) => {
+  // Prevent the click from triggering the tab switch
+  if (event) {
+    event.stopPropagation()
+  }
+  
+  const index = tabs.value.findIndex(tab => tab.id === tabId)
+  if (index !== -1) {
+    // If closing the active tab
+    if (tabId === activeTabId.value) {
+      // If it's the only tab, create a new one
+      if (tabs.value.length === 1) {
+        tabs.value.splice(index, 1)
+        addNewTab()
+        return
+      }
+      
+      // Otherwise, activate the next tab or the previous one if it's the last
+      const newActiveIndex = index === tabs.value.length - 1 ? index - 1 : index + 1
+      tabs.value[newActiveIndex].active = true
+      activeTabId.value = tabs.value[newActiveIndex].id
+    }
+    
+    // Remove the tab
+    tabs.value.splice(index, 1)
+  }
+}
+
+const setRequestBuilderRef = (el, tabId) => {
+  if (el) {
+    requestBuilderRefs.value[tabId] = el
+  }
 }
 </script>
 
@@ -68,18 +263,34 @@ const handleNewRequest = () => {
 
         <!-- Main Content -->
         <div class="main-content">
-          <!-- Request Builder -->
-          <section class="request-section">
-            <RequestBuilder 
-              ref="requestBuilderRef"
+          <!-- Tab Bar -->
+          <div class="tab-bar">
+            <div 
+              v-for="tab in tabs" 
+              :key="tab.id"
+              class="tab"
+              :class="{ active: tab.id === activeTabId }"
+              @click="switchTab(tab.id)"
+            >
+              <span class="tab-name">{{ tab.name }}</span>
+              <button class="tab-close" @click="closeTab(tab.id, $event)">&times;</button>
+            </div>
+            <button class="new-tab-button" @click="handleNewRequest">+</button>
+          </div>
+          
+          <!-- Request Builders - One per tab, only show active one -->
+          <div v-for="tab in tabs" :key="`builder-${tab.id}`" v-show="tab.id === activeTabId" class="request-section">
+            <RequestBuilder
+              :ref="el => setRequestBuilderRef(el, tab.id)"
               :collectionId="currentCollectionId"
               @response-received="handleResponseReceived"
+              @request-updated="handleRequestUpdated"
             />
-          </section>
-
-          <!-- Response Viewer -->
+          </div>
+          
+          <!-- Response Viewer - Shows active tab's response -->
           <section class="response-section">
-            <ResponseViewer :response="response" />
+            <ResponseViewer :response="activeResponse" />
           </section>
         </div>
       </div>
@@ -222,6 +433,89 @@ body {
 .response-section {
   flex: 1;
   min-height: 0;
+}
+
+// Tab bar styles
+.tab-bar {
+  display: flex;
+  background-color: #f0f0f0;
+  border-bottom: 1px solid #ddd;
+  overflow-x: auto;
+  height: 40px;
+  align-items: center;
+  
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+  
+  .tab {
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    height: 100%;
+    min-width: 120px;
+    max-width: 200px;
+    background-color: #f8f8f8;
+    border-right: 1px solid #ddd;
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+    transition: background-color 0.2s;
+    
+    &:hover {
+      background-color: #fff;
+    }
+    
+    &.active {
+      background-color: #fff;
+      border-bottom: 2px solid #667eea;
+    }
+    
+    .tab-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 14px;
+    }
+    
+    .tab-close {
+      background: transparent;
+      border: none;
+      color: #999;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 0 5px;
+      margin-left: 5px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      
+      &:hover {
+        background-color: rgba(0,0,0,0.05);
+        color: #333;
+      }
+    }
+  }
+  
+  .new-tab-button {
+    background: transparent;
+    border: none;
+    color: #667eea;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 15px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+    
+    &:hover {
+      background-color: rgba(102, 126, 234, 0.1);
+    }
+  }
 }
 
 // Scrollbar styling
