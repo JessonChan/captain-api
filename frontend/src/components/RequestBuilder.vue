@@ -233,29 +233,6 @@ watch(bodyType, (newType) => {
   // Emit request update when body type changes
   emitRequestUpdate()
 })
-
-const isRequestDirty = () => {
-  return request.value.url !== '' || request.value.method !== 'GET' || request.value.body !== ''
-}
-
-// Watch for URL changes
-watch(() => request.value.url, () => {
-  isDirty.value = isRequestDirty()
-  emitRequestUpdate()
-})
-
-// Watch for method changes
-watch(() => request.value.method, () => {
-  isDirty.value = isRequestDirty()
-  emitRequestUpdate()
-})
-
-// Watch for body changes
-watch(() => request.value.body, () => {
-  isDirty.value = isRequestDirty()
-  emitRequestUpdate()
-})
-
 // Emit request updates to parent for tab management
 const emitRequestUpdate = () => {
   // Ensure headers are synchronized before emitting
