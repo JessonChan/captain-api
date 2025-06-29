@@ -4,17 +4,18 @@
       <h4>{{ isEditing ? 'Edit Header Collection' : 'Add New Header Collection' }}</h4>
       <div v-if="isEditing" class="editing-badge">Editing</div>
     </div>
-    <form @submit.prevent="$emit('submit', formData)">
+    <form @submit.prevent="handleSubmit">
       <div class="form-group">
         <div class="form-label-row">
           <label for="collection-name">Collection Name:</label>
-          <span class="char-counter" :class="{ 'near-limit': formData.name.length > 40, 'at-limit': formData.name.length >= 50 }">
-            {{ formData.name.length }}/50
+          <span class="char-counter" :class="{ 'near-limit': localFormData.name.length > 40, 'at-limit': localFormData.name.length >= 50 }">
+            {{ localFormData.name.length }}/50
           </span>
         </div>
         <input 
           id="collection-name"
-          v-model="formData.name" 
+          :value="localFormData.name"
+          @input="e => updateField('name', e.target.value)"
           type="text" 
           required 
           maxlength="50"
@@ -26,13 +27,14 @@
       <div class="form-group">
         <div class="form-label-row">
           <label for="collection-description">Description:</label>
-          <span class="char-counter" :class="{ 'near-limit': formData.description.length > 80, 'at-limit': formData.description.length >= 100 }">
-            {{ formData.description.length }}/100
+          <span class="char-counter" :class="{ 'near-limit': localFormData.description.length > 80, 'at-limit': localFormData.description.length >= 100 }">
+            {{ localFormData.description.length }}/100
           </span>
         </div>
         <input 
           id="collection-description"
-          v-model="formData.description" 
+          :value="localFormData.description"
+          @input="e => updateField('description', e.target.value)"
           type="text" 
           maxlength="100"
           class="form-input" 
@@ -44,7 +46,7 @@
       <div class="headers-editor">
         <div class="headers-editor-header">
           <h5>Headers</h5>
-          <div class="header-count">{{ formData.headers.filter(h => h.key && h.value).length }} valid headers</div>
+          <div class="header-count">{{ localFormData.headers.filter(h => h.key && h.value).length }} valid headers</div>
         </div>
         
         <div class="header-table">
@@ -55,34 +57,34 @@
           </div>
           
           <div class="header-rows">
-            <div v-if="formData.headers.length === 0" class="empty-headers">
+            <div v-if="localFormData.headers.length === 0" class="empty-headers">
               <div class="empty-headers-message">No headers added yet</div>
               <div class="empty-headers-description">Click "Add Header" below to add your first header</div>
             </div>
             
             <div 
               class="header-row" 
-              v-for="(header, index) in formData.headers" 
+              v-for="(header, index) in localFormData.headers" 
               :key="index"
               :class="{'is-valid': header.key && header.value, 'is-invalid': (!header.key && header.value) || (header.key && !header.value)}"
             >
               <div class="input-wrapper">
                 <input 
-                  v-model="header.key" 
+                  :value="header.key" 
                   type="text" 
+                  class="form-input header-input" 
                   placeholder="Header name"
-                  class="header-input"
-                  :class="{'invalid-input': !header.key && header.value}"
+                  @input="e => updateHeaders(index, 'key', e.target.value)"
                 />
                 <div v-if="!header.key && header.value" class="validation-message">Name required</div>
               </div>
               <div class="input-wrapper">
                 <input 
-                  v-model="header.value" 
+                  :value="header.value" 
                   type="text" 
+                  class="form-input header-input" 
                   placeholder="Header value"
-                  class="header-input"
-                  :class="{'invalid-input': header.key && !header.value}"
+                  @input="e => updateHeaders(index, 'value', e.target.value)"
                 />
                 <div v-if="header.key && !header.value" class="validation-message">Value required</div>
               </div>
@@ -120,6 +122,24 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
+// Simple debounce implementation with TypeScript types
+const debounce = <T extends (...args: any[]) => void>(
+  fn: T,
+  delay: number
+): ((...args: Parameters<T>) => void) => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+  
+  return function(this: any, ...args: Parameters<T>) {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId)
+    }
+    timeoutId = setTimeout(() => {
+      fn.apply(this, args)
+      timeoutId = null
+    }, delay)
+  }
+}
+
 interface Header {
   key: string
   value: string
@@ -145,16 +165,43 @@ const props = withDefaults(defineProps<{
   isEditing: false
 })
 
+// Local copy of the form data
+const localFormData = ref<HeaderCollection>({
+  id: '',
+  name: '',
+  description: '',
+  headers: []
+})
+
+// Initialize local form data when props change
+watch(() => props.collection, (newCollection) => {
+  localFormData.value = {
+    id: newCollection.id || '',
+    name: newCollection.name || '',
+    description: newCollection.description || '',
+    headers: Array.isArray(newCollection.headers) 
+      ? newCollection.headers.map(h => ({ ...h }))
+      : newCollection.headers && typeof newCollection.headers === 'object'
+        ? Object.entries(newCollection.headers).map(([key, value]) => ({ key, value }))
+        : [{ key: '', value: '' }]
+  }
+  
+  // Ensure at least one header row
+  if (localFormData.value.headers.length === 0) {
+    localFormData.value.headers = [{ key: '', value: '' }]
+  }
+}, { immediate: true, deep: true })
+
 const emit = defineEmits<{
   (e: 'submit', value: HeaderCollection): void
   (e: 'cancel'): void
+  (e: 'update:collection', value: HeaderCollection): void
 }>()
 
 const formData = ref<HeaderCollection>({
   id: '',
   name: '',
   description: '',
-  headers: []
 })
 
 // Watch for changes in the collection prop
@@ -164,19 +211,51 @@ watch(() => props.collection, (newVal) => {
       id: newVal.id || '',
       name: newVal.name || '',
       description: newVal.description || '',
-      headers: newVal.headers ? [...newVal.headers] : []
+      headers: Array.isArray(newVal.headers) 
+        ? [...newVal.headers] 
+        : newVal.headers && typeof newVal.headers === 'object' && !Array.isArray(newVal.headers)
+          ? Object.entries(newVal.headers).map(([key, value]) => ({ key, value }))
+          : [{ key: '', value: '' }]
     }
   }
 }, { immediate: true, deep: true })
 
+// Handle input changes with debounce
+const updateField = (field: string, value: any) => {
+  localFormData.value[field] = value
+  debouncedEmit()
+}
+
+// Handle header changes
+const updateHeaders = (index: number, field: 'key' | 'value', value: string) => {
+  localFormData.value.headers[index][field] = value
+  debouncedEmit()
+}
+
+// Debounce emit to prevent too many updates
+const debouncedEmit = debounce(() => {
+  emit('update:collection', { ...localFormData.value })
+}, 300)
+
 // Add a new header field
 const addHeader = (): void => {
-  formData.value.headers.push({ key: '', value: '' })
+  localFormData.value.headers.push({ key: '', value: '' })
+  debouncedEmit()
 }
 
 // Remove a header field
 const removeHeader = (index: number): void => {
-  formData.value.headers.splice(index, 1)
+  localFormData.value.headers.splice(index, 1)
+  debouncedEmit()
+}
+// Handle form submission
+const handleSubmit = () => {
+  emit('submit', {
+    id: localFormData.value.id,
+    name: localFormData.value.name,
+    description: localFormData.value.description,
+    headers: localFormData.value.headers.filter(h => h.key || h.value)
+  })
 }
 </script>
 

@@ -50,23 +50,25 @@
     <div class="tab-content">
       <!-- Headers Tab -->
       <div v-if="activeTab === 'Headers'" class="headers-section">
-
-        
         <div class="headers-list">
-          <div class="header-row" v-for="(header, index) in headersList" :key="index">
+          <div class="header-row" v-for="(header, index) in allHeaders" :key="index">
             <input 
-              v-model="header.key" 
+              :value="header.key"
+              @input="updateHeader(index, 'key', $event.target.value)"
               type="text" 
               placeholder="Header name"
               class="header-input"
+              :readonly="header.readonly"
             />
             <input 
-              v-model="header.value" 
+              :value="header.value"
+              @input="updateHeader(index, 'value', $event.target.value)"
               type="text" 
               placeholder="Header value"
               class="header-input"
+              :readonly="header.readonly"
             />
-            <button @click="removeHeader(index)" class="remove-btn">×</button>
+            <button @click="removeHeader(index)" class="remove-btn" :disabled="header.readonly">×</button>
           </div>
           <button @click="addHeader" class="add-btn">+ Add Header</button>
         </div>
@@ -117,6 +119,10 @@ const props = defineProps({
   collectionId: {
     type: String,
     default: 'default'
+  },
+  virtualHeaders: {
+    type: Object,
+    default: null
   }
 })
 
@@ -141,18 +147,46 @@ const jsonValidationMessage = ref('')
 const jsonValidationClass = ref('')
 
 // Headers management
-const headersList = ref([{ key: '', value: '' }])
+const headersList = ref([])
 
+const virtualHeadersCount = computed(() => Object.keys(props.virtualHeaders || {}).length)
 
+const allHeaders = computed(() => {
+  const combined = []
+  if (props.virtualHeaders) {
+    for (const [key, value] of Object.entries(props.virtualHeaders)) {
+      combined.push({ key, value, readonly: true })
+    }
+  }
+  headersList.value.forEach(h => {
+      combined.push({ ...h, readonly: false })
+  })
+  return combined
+})
 
 const addHeader = () => {
   headersList.value.push({ key: '', value: '' })
 }
 
 const removeHeader = (index) => {
-  if (headersList.value.length > 1) {
-    headersList.value.splice(index, 1)
+  const headerToRemove = allHeaders.value[index]
+  if (headerToRemove.readonly) return
+
+  const headersListIndex = index - virtualHeadersCount.value
+  
+  if (headersList.value.length > 0) {
+    headersList.value.splice(headersListIndex, 1)
   }
+}
+
+const updateHeader = (index, field, value) => {
+    const headerToUpdate = allHeaders.value[index]
+    if (headerToUpdate.readonly) return
+
+    const headersListIndex = index - virtualHeadersCount.value
+    if (headersList.value[headersListIndex]) {
+        headersList.value[headersListIndex][field] = value
+    }
 }
 
 
@@ -168,29 +202,8 @@ const headersObject = computed(() => {
   return headers
 })
 
-// Update headers object from headers list and ensure it's in sync with the request
-function updateHeadersObject() {
-  const headers = {}
-  headersList.value.forEach(({ key, value }) => {
-    if (key) {
-      headers[key] = value
-    }
-  })
-  
-  // Update the reactive objects
-  headersObject.value = { ...headers }
-  
-  // Also update the request headers to ensure consistency
-  if (request.value) {
-    request.value.headers = { ...headers }
-  }
-  
-  return { ...headers }
-}
-
 // Watch for changes in the headers list and update the headers object
 watch(headersList, (newHeaders) => {
-  updateHeadersObject()
   emitRequestUpdate()
 }, { deep: true })
 
@@ -235,9 +248,6 @@ watch(bodyType, (newType) => {
 })
 // Emit request updates to parent for tab management
 const emitRequestUpdate = () => {
-  // Ensure headers are synchronized before emitting
-  updateHeadersObject()
-  
   emit('request-updated', {
     request: {
       method: request.value.method,
@@ -322,17 +332,17 @@ const sendRequest = async () => {
 
   loading.value = true
   try {
-    // Ensure headers are synchronized from the UI list
-    updateHeadersObject()
-    
     // Prepare body based on body type
     const bodyContent = bodyType.value === 'none' ? '' : request.value.body
     
+    const combinedHeaders = { ...props.virtualHeaders, ...headersObject.value };
+    console.log('Combined headers:', combinedHeaders)
+
     // Create a request object with synchronized headers
     const requestToSend = {
       method: request.value.method,
       url: request.value.url,
-      headers: headersObject.value,
+      headers: combinedHeaders,
       body: bodyContent
     }
 
@@ -398,7 +408,7 @@ async function saveRequest() {
     
     // Update the original request snapshot to reflect the saved state
     originalRequest.value = { ...request.value }
-    originalRequestSnapshot.value = createSnapshot(request.value, requestName.value, headersList)
+    originalRequestSnapshot.value = createSnapshot(request.value, requestName.value, headersList.value)
     
     // Notify the parent component that the request was saved
     // emit('request-saved', savedRequest)
@@ -419,9 +429,6 @@ async function updateRequest() {
     console.log('No current request ID, redirecting to save')
     return saveRequest()
   }
-
-  // Ensure we have the latest headers
-  updateHeadersObject()
   
   if (!requestName.value) {
     alert('Request name is required.')
@@ -468,9 +475,11 @@ const originalRequestSnapshot = ref('')
 const createSnapshot = (req, name, headersList) => {
   console.log('Creating snapshot for request:', req)
   const headers = {}
-  headersList.value.forEach(h => {
-    if (h.key) headers[h.key] = h.value
-  })
+  if (headersList) {
+    headersList.forEach(h => {
+      if (h.key) headers[h.key] = h.value
+    })
+  }
   const sortedHeaders = Object.keys(headers).sort().reduce((obj, key) => {
     obj[key] = headers[key]
     return obj
@@ -489,11 +498,10 @@ const createSnapshot = (req, name, headersList) => {
 
 const isDirty = computed(() => {
   if (!originalRequest.value) return false
-  const currentSnapshot = createSnapshot(request.value, requestName.value, headersList)
+  const currentSnapshot = createSnapshot(request.value, requestName.value, headersList.value)
   return currentSnapshot !== originalRequestSnapshot.value
 })
 
-// Load request from props
 const loadRequest = (requestData) => {
   console.log('Loading request data:', requestData)
   
@@ -520,11 +528,6 @@ const loadRequest = (requestData) => {
     key, 
     value: String(value) 
   }))
-  
-  // Always ensure there's at least one header row
-  if (headersList.value.length === 0) {
-    headersList.value = [{ key: '', value: '' }]
-  }
 
   // Set body type based on content
   const bodyContent = requestData.body || ''
@@ -544,7 +547,7 @@ const loadRequest = (requestData) => {
   request.value.body = bodyContent
   
   // Create snapshot after all values are set
-  originalRequestSnapshot.value = createSnapshot(request.value, requestName.value, headersList)
+  originalRequestSnapshot.value = createSnapshot(request.value, requestName.value, headersList.value)
   
   console.log('Finished loading request. Current state:', {
     request: request.value,
@@ -568,7 +571,7 @@ function newRequest() {
   }
   
   // Reset UI state
-  headersList.value = [{ key: '', value: '' }]
+  headersList.value = []
   bodyType.value = 'none'
   requestName.value = ''
   currentRequestId.value = null
@@ -581,7 +584,7 @@ function newRequest() {
   
   // Reset dirty state tracking
   originalRequest.value = { ...request.value }
-  originalRequestSnapshot.value = createSnapshot(request.value, requestName.value, headersList)
+  originalRequestSnapshot.value = createSnapshot(request.value, requestName.value, headersList.value)
   
   // Notify parent component of the reset
   emitRequestUpdate()
@@ -664,6 +667,18 @@ defineExpose({ loadRequest, newRequest })
   color: #007bff;
   font-weight: 500;
 }
+
+.header-input[readonly] {
+  background-color: #e9ecef;
+  cursor: not-allowed;
+}
+
+.remove-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 
 
 

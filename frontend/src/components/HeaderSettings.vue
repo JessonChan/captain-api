@@ -68,7 +68,7 @@
 
           <!-- Add/Edit Header Collection Form -->
           <HeaderCollectionForm
-            :collection="editingCollection || formData"
+            v-model:collection="formData"
             :is-editing="!!editingCollection"
             @submit="saveHeaderCollection"
             @cancel="cancelEdit"
@@ -79,9 +79,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { GetHeaderCollections, CreateHeaderCollection, UpdateHeaderCollection, DeleteHeaderCollection, AddHeaderTemplate, UpdateHeaderTemplate, DeleteHeaderTemplate } from '../../bindings/captain-api/headerservice'
+import { HeaderService } from '../../bindings/captain-api'
 import HeaderCollectionForm from './HeaderCollectionForm.vue'
 
 // Define props and emits
@@ -99,11 +100,16 @@ const showManageModal = computed(() => props.show)
 const editingCollection = ref(null)
 const searchQuery = ref('')
 const sortOption = ref('name-asc') // Default sort option
-const formData = ref({
+// Form data for new collections
+const newCollectionTemplate = {
+  id: '',
   name: '',
   description: '',
   headers: [{ key: '', value: '' }]
-})
+}
+
+// Current form data (reactive)
+const formData = ref({ ...newCollectionTemplate })
 
 // Filter and sort collections based on search query and sort option
 const filteredCollections = computed(() => {
@@ -154,7 +160,7 @@ onUnmounted(() => {
   document.removeEventListener('open-header-settings', handleOpenHeaderSettings)
 })
 
-// Load header collections from backend
+// Load header collections
 const loadHeaderCollections = async () => {
   try {
     const collections = await GetHeaderCollections()
@@ -167,9 +173,13 @@ const loadHeaderCollections = async () => {
         // Use the first template's headers
         const template = collection.headerTemplates[0]
         if (template && template.headers) {
-          Object.entries(template.headers).forEach(([key, value]) => {
-            headers.push({ key, value })
-          })
+          if (Array.isArray(template.headers)) {
+            headers.push(...template.headers.map(h => ({ ...h })))
+          } else if (typeof template.headers === 'object') {
+            Object.entries(template.headers).forEach(([key, value]) => {
+              headers.push({ key, value })
+            })
+          }
         }
       }
       
@@ -177,9 +187,14 @@ const loadHeaderCollections = async () => {
         id: collection.id,
         name: collection.name,
         description: collection.description,
-        headers
+        headers,
+        headerTemplates: collection.headerTemplates || [],
+        createdAt: collection.createdAt,
+        updatedAt: collection.updatedAt
       }
     })
+    
+    console.log('Loaded header collections:', headerCollections.value)
   } catch (error) {
     console.error('Failed to load header collections:', error)
   }
@@ -187,27 +202,44 @@ const loadHeaderCollections = async () => {
 
 // Edit a header collection
 const editHeaderCollection = (collection) => {
-  editingCollection.value = collection
-  formData.value = {
-    name: collection.name,
-    description: collection.description || '',
-    headers: Object.entries(collection.headers || {}).map(([key, value]) => ({ key, value }))
+  console.log('Starting edit of collection:', collection)
+  
+  // Get the latest version of the collection from the list
+  const latestCollection = headerCollections.value.find(c => c.id === collection.id) || collection
+  
+  // Store the collection being edited
+  editingCollection.value = { ...latestCollection }
+  
+  // Create a clean copy of the headers
+  let headers = []
+  if (latestCollection.headers) {
+    if (Array.isArray(latestCollection.headers)) {
+      headers = latestCollection.headers.map(h => ({ ...h }))
+    } else if (typeof latestCollection.headers === 'object') {
+      headers = Object.entries(latestCollection.headers).map(([key, value]) => ({ key, value }))
+    }
   }
   
   // Ensure there's at least one header row
-  if (formData.value.headers.length === 0) {
-    formData.value.headers = [{ key: '', value: '' }]
+  if (headers.length === 0) {
+    headers = [{ key: '', value: '' }]
   }
+  
+  // Update form data in a single assignment
+  formData.value = {
+    id: latestCollection.id || '',
+    name: latestCollection.name || '',
+    description: latestCollection.description || '',
+    headers
+  }
+  
+  console.log('Form data after edit:', { ...formData.value })
 }
 
 // Cancel editing
 const cancelEdit = () => {
   editingCollection.value = null
-  formData.value = {
-    name: '',
-    description: '',
-    headers: [{ key: '', value: '' }]
-  }
+  formData.value = { ...newCollectionTemplate }
 }
 
 // Validate form data
@@ -242,60 +274,73 @@ const validateForm = () => {
 }
 
 // Save header collection
-const saveHeaderCollection = async () => {
-  // Validate form before saving
-  if (!validateForm()) return
-  
+const saveHeaderCollection = async (collectionData) => {
   try {
-    // Convert headers array to object
+    console.log('Saving collection with data:', collectionData)
+    
+    // Convert headers array to object for the template
     const headersObject = {}
-    formData.value.headers.forEach(header => {
-      if (header.key && header.value) {
-        headersObject[header.key] = header.value
-      }
+    const validHeaders = collectionData.headers.filter(h => h.key && h.value)
+    
+    validHeaders.forEach(header => {
+      headersObject[header.key] = header.value
     })
+    
+    const now = new Date().toISOString()
     
     // Create a header template from the headers
     const template = {
-      id: editingCollection.value?.id ? `${editingCollection.value.id}_template` : '',
-      name: `${formData.value.name.trim()} Template`,
-      description: formData.value.description.trim(),
-      headers: headersObject
+      id: collectionData.id ? `${collectionData.id}_template` : '',
+      name: `${collectionData.name.trim()} Template`,
+      description: collectionData.description.trim(),
+      headers: headersObject,
+      isActive: true,
+      createdAt: editingCollection.value?.createdAt || now,
+      updatedAt: now,
     }
     
-    // Create the collection with the template
     const collection = {
-      id: editingCollection.value?.id || '',
-      name: formData.value.name.trim(),
-      description: formData.value.description.trim(),
-      headerTemplates: [template]
+      id: collectionData.id || `collection_${Date.now()}`,
+      name: collectionData.name.trim(),
+      description: collectionData.description.trim(),
+      headers: validHeaders,
+      headerTemplates: [template],
+      createdAt: editingCollection.value?.createdAt || now,
+      updatedAt: now
     }
     
     if (editingCollection.value) {
       // Update existing collection
-      await UpdateHeaderCollection(collection)
+      console.log('Updating collection:', collection)
+      const updated = await HeaderService.UpdateHeaderCollection(collection)
       
       // Update in local array
       const index = headerCollections.value.findIndex(c => c.id === collection.id)
-      if (index !== -1) {
-        headerCollections.value[index] = {
-          ...collection,
-          headers: formData.value.headers
-        }
+      if (index !== -1 && updated) {
+        headerCollections.value[index] = updated
       }
     } else {
       // Create new collection
-      await CreateHeaderCollection(collection)
+      const newCollection = await HeaderService.CreateHeaderCollection(collection)
       
-      // Reload collections to get the server-generated ID
-      await loadHeaderCollections()
+      // Add the new collection to the local array
+      if (newCollection) {
+        headerCollections.value.push(newCollection)
+      } else {
+        throw new Error('Failed to create collection: No data returned from server')
+      }
     }
     
-    // Reset form
+    // Reload collections to get the latest data from the server
+    await loadHeaderCollections()
+    
+    // Reset form and close modal
     cancelEdit()
+    
+    // Show success message
+    console.log('Header collection saved successfully')
   } catch (error) {
     console.error('Failed to save header collection:', error)
-    alert('Failed to save header collection')
   }
 }
 
@@ -315,7 +360,6 @@ const deleteHeaderCollection = async (collectionId) => {
       headerCollections.value = headerCollections.value.filter(c => c.id !== collectionId)
     } catch (error) {
       console.error('Failed to delete header collection:', error)
-      alert('Failed to delete header collection')
     }
   }
 }

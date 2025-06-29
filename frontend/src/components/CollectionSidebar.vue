@@ -366,7 +366,7 @@ import RequestLogs from './RequestLogs.vue'
 import { Events } from '@wailsio/runtime'
 import HeaderSettings from './HeaderSettings.vue'
 
-const emit = defineEmits(['load-request', 'new-request'])
+const emit = defineEmits(['load-request', 'new-request', 'header-collection-selected'])
 
 const currentView = ref('collections')
 const collections = ref([])
@@ -761,6 +761,9 @@ const setActiveHeaderCollection = (collectionId, headerCollectionId) => {
   } else {
     activeHeaderCollections.value.delete(collectionId)
   }
+
+  const activeHeaderCollection = getActiveHeaderCollectionData(collectionId)
+  emit('header-collection-selected', activeHeaderCollection ? activeHeaderCollection.headers : null)
 }
 
 // Open header manager modal

@@ -19,6 +19,11 @@ const currentCollectionId = ref('default')
 // Computed properties
 const activeTab = computed(() => tabs.value.find(tab => tab.id === activeTabId.value))
 const activeResponse = computed(() => activeTab.value?.response)
+const selectedHeaders = ref(null)
+
+const handleHeaderCollectionSelected = (headers) => {
+  selectedHeaders.value = headers
+}
 
 const handleResponseReceived = async (responseData) => {
   // Update the response for the active tab
@@ -258,6 +263,7 @@ const setRequestBuilderRef = (el, tabId) => {
             ref="collectionSidebarRef"
             @load-request="handleLoadRequest"
             @new-request="handleNewRequest"
+            @header-collection-selected="handleHeaderCollectionSelected"
           />
         </aside>
 
@@ -283,6 +289,7 @@ const setRequestBuilderRef = (el, tabId) => {
             <RequestBuilder
               :ref="el => setRequestBuilderRef(el, tab.id)"
               :collectionId="currentCollectionId"
+              :virtualHeaders="selectedHeaders"
               @response-received="handleResponseReceived"
               @request-updated="handleRequestUpdated"
             />
