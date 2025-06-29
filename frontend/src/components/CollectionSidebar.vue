@@ -357,7 +357,7 @@
   />
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { CollectionService } from '../../bindings/captain-api'
 import { GetHeaderCollections } from '../../bindings/captain-api/headerservice'
@@ -474,6 +474,13 @@ async function loadCollections() {
       await loadCollections() // Recursively load after creating default collection
       return
     }
+    
+    // Initialize active header collections from persisted data
+    collections.value.forEach(c => {
+      if (c.activeHeaderCollectionId) {
+        activeHeaderCollections.value.set(c.id, c.activeHeaderCollectionId)
+      }
+    })
     
     console.log('Collections loaded successfully:', collections.value)
     
@@ -766,15 +773,21 @@ const getActiveHeaderCollectionData = (collectionId) => {
   return headerCollections.value.find(hc => hc.id === activeId)
 }
 
-const setActiveHeaderCollection = (collectionId, headerCollectionId) => {
-  if (headerCollectionId) {
-    activeHeaderCollections.value.set(collectionId, headerCollectionId)
-  } else {
-    activeHeaderCollections.value.delete(collectionId)
-  }
+const setActiveHeaderCollection = async (collectionId, headerCollectionId) => {
+  try {
+    await CollectionService.SetActiveHeaderCollection(collectionId, headerCollectionId)
+    if (headerCollectionId) {
+      activeHeaderCollections.value.set(collectionId, headerCollectionId)
+    } else {
+      activeHeaderCollections.value.delete(collectionId)
+    }
 
-  const activeHeaderCollection = getActiveHeaderCollectionData(collectionId)
-  emit('header-collection-selected', activeHeaderCollection ? activeHeaderCollection.headers : null)
+    const activeHeaderCollection = getActiveHeaderCollectionData(collectionId)
+    emit('header-collection-selected', activeHeaderCollection ? activeHeaderCollection.headers : null)
+  } catch (error) {
+    console.error('Failed to set active header collection:', error)
+    alert('Failed to set active header collection')
+  }
 }
 
 // Open header manager modal

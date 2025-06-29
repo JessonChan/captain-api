@@ -54,13 +54,14 @@ type CollectionEnvironment struct {
 
 // Collection represents a collection of requests
 type Collection struct {
-	ID           string                  `json:"id"`
-	Name         string                  `json:"name"`
-	Description  string                  `json:"description"`
-	Environments []CollectionEnvironment `json:"environments"`
-	Requests     []RequestItem           `json:"requests"`
-	CreatedAt    time.Time               `json:"createdAt"`
-	UpdatedAt    time.Time               `json:"updatedAt"`
+	ID                       string                  `json:"id"`
+	Name                     string                  `json:"name"`
+	Description              string                  `json:"description"`
+	ActiveHeaderCollectionID string                  `json:"activeHeaderCollectionId,omitempty"`
+	Environments             []CollectionEnvironment `json:"environments"`
+	Requests                 []RequestItem           `json:"requests"`
+	CreatedAt                time.Time               `json:"createdAt"`
+	UpdatedAt                time.Time               `json:"updatedAt"`
 }
 
 // SaveRequest saves a request to a collection
@@ -447,4 +448,17 @@ func (c *CollectionService) UpdateCollection(ctx context.Context, collectionID s
 	}
 
 	return collection, nil
+}
+
+// SetActiveHeaderCollection sets the active header collection for a main collection
+func (c *CollectionService) SetActiveHeaderCollection(ctx context.Context, collectionID string, headerCollectionID string) error {
+	collection, err := c.GetCollection(ctx, collectionID)
+	if err != nil {
+		return err
+	}
+
+	collection.ActiveHeaderCollectionID = headerCollectionID
+	collection.UpdatedAt = time.Now()
+
+	return c.saveCollection(collection)
 }
