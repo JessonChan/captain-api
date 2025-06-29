@@ -20,15 +20,6 @@
               <h4>Your Collections</h4>
               <div class="list-actions">
                 <div class="collection-count">{{ headerCollections.length }} collections</div>
-                <div class="sort-control">
-                  <select v-model="sortOption" class="sort-select">
-                    <option value="name-asc">Name (A-Z)</option>
-                    <option value="name-desc">Name (Z-A)</option>
-                    <option value="date-desc">Newest first</option>
-                    <option value="date-asc">Oldest first</option>
-                  </select>
-                  <span class="sort-icon">⌄</span>
-                </div>
                 <button @click="triggerImportFile" class="import-btn" title="Import collection">
                   <span class="btn-icon">📥</span>
                   <span class="btn-text">Import</span>
@@ -42,16 +33,7 @@
                 />
               </div>
             </div>
-            
-            <div class="search-container">
-              <input 
-                type="text" 
-                v-model="searchQuery" 
-                placeholder="Search collections..." 
-                class="search-input"
-              />
-              <span class="search-icon">🔍</span>
-            </div>
+
             
             <div v-if="headerCollections.length === 0" class="empty-collections">
               <div class="empty-icon">📋</div>
@@ -85,122 +67,12 @@
           </div>
 
           <!-- Add/Edit Header Collection Form -->
-          <div class="header-collection-form">
-            <div class="form-header">
-              <h4>{{ editingCollection ? 'Edit Header Collection' : 'Add New Header Collection' }}</h4>
-              <div v-if="editingCollection" class="editing-badge">Editing</div>
-            </div>
-            <form @submit.prevent="saveHeaderCollection">
-              <div class="form-group">
-                <div class="form-label-row">
-                  <label for="collection-name">Collection Name:</label>
-                  <span class="char-counter" :class="{ 'near-limit': formData.name.length > 40, 'at-limit': formData.name.length >= 50 }">
-                    {{ formData.name.length }}/50
-                  </span>
-                </div>
-                <input 
-                  id="collection-name"
-                  v-model="formData.name" 
-                  type="text" 
-                  required 
-                  maxlength="50"
-                  class="form-input" 
-                  placeholder="Enter collection name"
-                  autofocus
-                />
-              </div>
-              <div class="form-group">
-                <div class="form-label-row">
-                  <label for="collection-description">Description:</label>
-                  <span class="char-counter" :class="{ 'near-limit': formData.description.length > 80, 'at-limit': formData.description.length >= 100 }">
-                    {{ formData.description.length }}/100
-                  </span>
-                </div>
-                <input 
-                  id="collection-description"
-                  v-model="formData.description" 
-                  type="text" 
-                  maxlength="100"
-                  class="form-input" 
-                  placeholder="Optional description" 
-                />                
-              </div>
-              
-              <!-- Headers Editor -->
-              <div class="headers-editor">
-                <div class="headers-editor-header">
-                  <h5>Headers</h5>
-                  <div class="header-count">{{ formData.headers.filter(h => h.key && h.value).length }} valid headers</div>
-                </div>
-                
-                <div class="header-table">
-                  <div class="header-table-head">
-                    <div class="header-name-col">Header Name</div>
-                    <div class="header-value-col">Value</div>
-                    <div class="header-action-col"></div>
-                  </div>
-                  
-                  <div class="header-rows">
-                    <div v-if="formData.headers.length === 0" class="empty-headers">
-                      <div class="empty-headers-message">No headers added yet</div>
-                      <div class="empty-headers-description">Click "Add Header" below to add your first header</div>
-                    </div>
-                    
-                    <div 
-                      class="header-row" 
-                      v-for="(header, index) in formData.headers" 
-                      :key="index"
-                      :class="{'is-valid': header.key && header.value, 'is-invalid': (!header.key && header.value) || (header.key && !header.value)}"
-                    >
-                      <div class="input-wrapper">
-                        <input 
-                          v-model="header.key" 
-                          type="text" 
-                          placeholder="Header name"
-                          class="header-input"
-                          :class="{'invalid-input': !header.key && header.value}"
-                        />
-                        <div v-if="!header.key && header.value" class="validation-message">Name required</div>
-                      </div>
-                      <div class="input-wrapper">
-                        <input 
-                          v-model="header.value" 
-                          type="text" 
-                          placeholder="Header value"
-                          class="header-input"
-                          :class="{'invalid-input': header.key && !header.value}"
-                        />
-                        <div v-if="header.key && !header.value" class="validation-message">Value required</div>
-                      </div>
-                      <button 
-                        type="button" 
-                        @click="removeHeader(index)" 
-                        class="remove-header-btn"
-                        title="Remove header"
-                      >
-                        <span class="remove-icon">×</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                
-                <button type="button" @click="addHeader" class="add-header-btn">
-                  <span class="add-icon">+</span> Add Header
-                </button>
-              </div>
-              
-              <div class="form-actions">
-                <button type="button" @click="cancelEdit" class="cancel-btn">
-                  <span class="btn-icon">✕</span>
-                  <span class="btn-text">Cancel</span>
-                </button>
-                <button type="submit" class="save-btn">
-                  <span class="btn-icon">{{ editingCollection ? '✓' : '+' }}</span>
-                  <span class="btn-text">{{ editingCollection ? 'Update Collection' : 'Add Collection' }}</span>
-                </button>
-              </div>
-            </form>
-          </div>
+          <HeaderCollectionForm
+            :collection="editingCollection || formData"
+            :is-editing="!!editingCollection"
+            @submit="saveHeaderCollection"
+            @cancel="cancelEdit"
+          />
         </div>
       </div>
     </div>
@@ -210,6 +82,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { GetHeaderCollections, CreateHeaderCollection, UpdateHeaderCollection, DeleteHeaderCollection, AddHeaderTemplate, UpdateHeaderTemplate, DeleteHeaderTemplate } from '../../bindings/captain-api/headerservice'
+import HeaderCollectionForm from './HeaderCollectionForm.vue'
 
 // Define props and emits
 const props = defineProps({
@@ -309,18 +182,6 @@ const loadHeaderCollections = async () => {
     })
   } catch (error) {
     console.error('Failed to load header collections:', error)
-  }
-}
-
-// Add a new header field
-const addHeader = () => {
-  formData.value.headers.push({ key: '', value: '' })
-}
-
-// Remove a header field
-const removeHeader = (index) => {
-  if (formData.value.headers.length > 1) {
-    formData.value.headers.splice(index, 1)
   }
 }
 
@@ -707,73 +568,6 @@ const closeModal = (e) => {
   border-radius: 12px;
 }
 
-.sort-control {
-  position: relative;
-}
-
-.sort-select {
-  appearance: none;
-  background-color: #fff;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-  padding: 4px 24px 4px 8px;
-  font-size: 0.85rem;
-  color: #495057;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.sort-select:focus {
-  outline: none;
-  border-color: #86b7fe;
-  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.1);
-}
-
-.sort-icon {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: #6c757d;
-  font-size: 0.9rem;
-}
-
-.search-container {
-  position: relative;
-  padding: 10px 15px;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.search-input {
-  width: 100%;
-  padding: 8px 12px 8px 32px;
-  border: 1px solid #ced4da;
-  border-radius: 20px;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-  color: #495057;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #86b7fe;
-  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
-}
-
-.search-input::placeholder {
-  color: #adb5bd;
-}
-
-.search-icon {
-  position: absolute;
-  left: 25px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.9rem;
-  color: #6c757d;
-  pointer-events: none;
-}
 
 .header-collection-item {
   display: flex;
