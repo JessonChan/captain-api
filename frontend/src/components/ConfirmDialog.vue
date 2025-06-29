@@ -2,17 +2,17 @@
   <div v-if="isVisible" class="confirm-overlay" @click="onCancel">
     <div class="confirm-dialog" @click.stop>
       <div class="confirm-header">
-        <h3>{{ title }}</h3>
+        <h3>{{ currentTitle }}</h3>
       </div>
       <div class="confirm-body">
-        <p>{{ message }}</p>
+        <p>{{ currentMessage }}</p>
       </div>
       <div class="confirm-actions">
         <button class="btn btn-secondary" @click="onCancel">
-          {{ cancelText }}
+          {{ currentCancelText }}
         </button>
         <button class="btn btn-danger" @click="onConfirm">
-          {{ confirmText }}
+          {{ currentConfirmText }}
         </button>
       </div>
     </div>
@@ -44,8 +44,20 @@ const props = defineProps({
 const emit = defineEmits(['confirm', 'cancel'])
 
 const isVisible = ref(false)
+const currentTitle = ref('')
+const currentMessage = ref('')
+const currentConfirmText = ref('')
+const currentCancelText = ref('')
+let confirmAction = null
+let cancelAction = null
 
-const show = () => {
+const show = (title, message, confirmText, cancelText, onConfirmCallback, onCancelCallback) => {
+  currentTitle.value = title || props.title
+  currentMessage.value = message || props.message
+  currentConfirmText.value = confirmText || props.confirmText
+  currentCancelText.value = cancelText || props.cancelText
+  confirmAction = onConfirmCallback
+  cancelAction = onCancelCallback
   isVisible.value = true
 }
 
@@ -54,11 +66,17 @@ const hide = () => {
 }
 
 const onConfirm = () => {
+  if (confirmAction) {
+    confirmAction()
+  }
   emit('confirm')
   hide()
 }
 
 const onCancel = () => {
+  if (cancelAction) {
+    cancelAction()
+  }
   emit('cancel')
   hide()
 }

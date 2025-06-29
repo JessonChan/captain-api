@@ -540,6 +540,17 @@ const confirmDelete = async () => {
     } finally {
       pendingDeleteRequest = null
     }
+  } else if (pendingDeleteCollection) {
+    try {
+      await CollectionService.DeleteCollection(pendingDeleteCollection.collectionId)
+      await loadCollections()
+      console.log('Collection deleted successfully')
+    } catch (error) {
+      console.error('Failed to delete collection:', error)
+      alert('Failed to delete collection')
+    } finally {
+      pendingDeleteCollection = null
+    }
   }
 }
 
@@ -869,13 +880,21 @@ const exportCollection = async (collectionId) => {
   showCollectionMenu.value = false
 }
 
+let pendingDeleteCollection = null
+
 const confirmDeleteCollection = (collectionId) => {
   const collection = collections.value.find(c => c.id === collectionId)
   if (!collection) return
-  
-  if (confirm(`Are you sure you want to delete "${collection.name}"? This will also delete all requests in this collection. This action cannot be undone.`)) {
-    deleteCollection(collectionId)
-  }
+
+  pendingDeleteCollection = { collectionId: collectionId }
+  confirmDialog.value.show(
+    'Delete Collection',
+    `Are you sure you want to delete "${collection.name}"? This will also delete all requests in this collection. This action cannot be undone.`,
+    'Delete',
+    'Cancel',
+    () => deleteCollection(collectionId),
+    () => { pendingDeleteCollection = null }
+  )
   showCollectionMenu.value = false
 }
 

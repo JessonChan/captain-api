@@ -417,3 +417,34 @@ func (c *CollectionService) DeleteCollectionEnvironment(ctx context.Context, col
 
 	return fmt.Errorf("environment with ID %s not found in collection %s", envID, collectionID)
 }
+
+// DeleteCollection deletes a collection
+func (c *CollectionService) DeleteCollection(ctx context.Context, collectionID string) error {
+	filePath := filepath.Join(c.collectionsPath, collectionID+".json")
+	err := os.Remove(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to delete collection: %w", err)
+	}
+	return nil
+}
+
+// UpdateCollection updates a collection's top-level properties (e.g., name, description)
+func (c *CollectionService) UpdateCollection(ctx context.Context, collectionID string, updatedCollection Collection) (*Collection, error) {
+	collection, err := c.GetCollection(ctx, collectionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update fields
+	collection.Name = updatedCollection.Name
+	collection.Description = updatedCollection.Description
+	collection.UpdatedAt = time.Now()
+
+	// Save the updated collection
+	err = c.saveCollection(collection)
+	if err != nil {
+		return nil, err
+	}
+
+	return collection, nil
+}
