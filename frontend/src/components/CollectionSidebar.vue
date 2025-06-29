@@ -330,11 +330,7 @@
     />
     
     <!-- Header Settings Modal -->
-    <div v-if="showHeaderSettingsModal" class="modal-overlay" @click="closeHeaderSettingsModal">
-      <div class="modal-content header-settings-modal" @click.stop>
-        <HeaderSettings :show="showHeaderSettingsModal" @close="closeHeaderSettingsModal" />
-      </div>
-    </div>
+    <HeaderSettings :show="showHeaderSettingsModal" @close="closeHeaderSettingsModal" />
     
     <!-- Fixed Add Collection Button at Bottom -->
     <div class="sidebar-footer" v-if="currentView === 'collections'">
