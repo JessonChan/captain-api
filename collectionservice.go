@@ -52,6 +52,27 @@ type CollectionEnvironment struct {
 	IsActive    bool   `json:"isActive"`
 }
 
+// HeaderTemplate represents a reusable header template
+type HeaderTemplate struct {
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Headers     map[string]string `json:"headers"`
+	CreatedAt   time.Time         `json:"createdAt"`
+	UpdatedAt   time.Time         `json:"updatedAt"`
+}
+
+// HeaderCollection represents a collection of header templates
+type HeaderCollection struct {
+	ID              string           `json:"id"`
+	CollectionID    string           `json:"collectionId"`
+	Name            string           `json:"name"`
+	Description     string           `json:"description"`
+	HeaderTemplates []HeaderTemplate `json:"headerTemplates"`
+	CreatedAt       time.Time        `json:"createdAt"`
+	UpdatedAt       time.Time        `json:"updatedAt"`
+}
+
 // Collection represents a collection of requests
 type Collection struct {
 	ID                       string                  `json:"id"`
@@ -59,6 +80,7 @@ type Collection struct {
 	Description              string                  `json:"description"`
 	ActiveHeaderCollectionID string                  `json:"activeHeaderCollectionId,omitempty"`
 	Environments             []CollectionEnvironment `json:"environments"`
+	HeaderCollections        []HeaderCollection      `json:"headerCollections"`
 	Requests                 []RequestItem           `json:"requests"`
 	CreatedAt                time.Time               `json:"createdAt"`
 	UpdatedAt                time.Time               `json:"updatedAt"`
@@ -461,4 +483,69 @@ func (c *CollectionService) SetActiveHeaderCollection(ctx context.Context, colle
 	collection.UpdatedAt = time.Now()
 
 	return c.saveCollection(collection)
+}
+
+// CreateHeaderCollection creates a new header collection
+func (c *CollectionService) CreateHeaderCollection(ctx context.Context, collectionID string, headerCollection HeaderCollection) (*HeaderCollection, error) {
+	collection, err := c.GetCollection(ctx, collectionID)
+	if err != nil {
+		return nil, err
+	}
+
+	if headerCollection.ID == "" {
+		headerCollection.ID = fmt.Sprintf("header_col_%d", time.Now().UnixNano())
+	}
+
+	headerCollection.CreatedAt = time.Now()
+	headerCollection.UpdatedAt = time.Now()
+
+	collection.HeaderCollections = append(collection.HeaderCollections, headerCollection)
+	collection.UpdatedAt = time.Now()
+
+	err = c.saveCollection(collection)
+	if err != nil {
+		return nil, err
+	}
+	return &headerCollection, nil
+}
+
+// UpdateHeaderCollection updates an existing header collection
+func (c *CollectionService) UpdateHeaderCollection(ctx context.Context, collectionID string, headerCollection HeaderCollection) (*HeaderCollection, error) {
+	collection, err := c.GetCollection(ctx, collectionID)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, hc := range collection.HeaderCollections {
+		if hc.ID == headerCollection.ID {
+			headerCollection.UpdatedAt = time.Now()
+			collection.HeaderCollections[i] = headerCollection
+			collection.UpdatedAt = time.Now()
+			err = c.saveCollection(collection)
+			if err != nil {
+				return nil, err
+			}
+			return &headerCollection, nil
+		}
+	}
+
+	return nil, fmt.Errorf("header collection not found")
+}
+
+// DeleteHeaderCollection deletes a header collection
+func (c *CollectionService) DeleteHeaderCollection(ctx context.Context, collectionID, headerCollectionID string) error {
+	collection, err := c.GetCollection(ctx, collectionID)
+	if err != nil {
+		return err
+	}
+
+	for i, hc := range collection.HeaderCollections {
+		if hc.ID == headerCollectionID {
+			collection.HeaderCollections = append(collection.HeaderCollections[:i], collection.HeaderCollections[i+1:]...)
+			collection.UpdatedAt = time.Now()
+			return c.saveCollection(collection)
+		}
+	}
+
+	return fmt.Errorf("header collection not found")
 }

@@ -19,7 +19,7 @@
             <div class="list-header">
               <h4>Your Collections</h4>
               <div class="list-actions">
-                <div class="collection-count">{{ headerCollections.length }} collections</div>
+                <div class="collection-count">{{ collection.headerCollections.length }} collections</div>
                 <button @click="triggerImportFile" class="import-btn" title="Import collection">
                   <span class="btn-icon">📥</span>
                   <span class="btn-text">Import</span>
@@ -35,30 +35,30 @@
             </div>
 
             
-            <div v-if="headerCollections.length === 0" class="empty-collections">
+            <div v-if="collection.headerCollections.length === 0" class="empty-collections">
               <div class="empty-icon">📋</div>
               <div class="empty-message">No header collections yet</div>
               <div class="empty-description">Create your first header collection to reuse headers across requests</div>
             </div>
             
-            <div v-else v-for="collection in filteredCollections" :key="collection.id" class="header-collection-item">
+            <div v-else v-for="headerCollection in collection.headerCollections" :key="headerCollection.id" class="header-collection-item">
               <div class="header-collection-info">
-                <div class="header-collection-name">{{ collection.name }}</div>
-                <div class="header-collection-description">{{ collection.description }}</div>
+                <div class="header-collection-name">{{ headerCollection.name }}</div>
+                <div class="header-collection-description">{{ headerCollection.description }}</div>
                 <div class="header-collection-stats">
-                  <span class="header-count-badge">{{ Object.keys(collection.headers || {}).length }} headers</span>
+                  <span class="header-count-badge">{{ Object.keys(headerCollection.headerTemplates[0].headers || {}).length }} headers</span>
                 </div>
               </div>
               <div class="header-collection-actions">
-                <button @click="editHeaderCollection(collection)" class="edit-btn" title="Edit collection">
+                <button @click="editHeaderCollection(headerCollection)" class="edit-btn" title="Edit collection">
                   <span class="btn-icon">✏️</span>
                   <span class="btn-text">Edit</span>
                 </button>
-                <button @click="exportHeaderCollection(collection)" class="export-btn" title="Export collection">
+                <button @click="exportHeaderCollection(headerCollection)" class="export-btn" title="Export collection">
                   <span class="btn-icon">📤</span>
                   <span class="btn-text">Export</span>
                 </button>
-                <button @click="deleteHeaderCollection(collection.id)" class="delete-btn" title="Delete collection">
+                <button @click="deleteHeaderCollection(headerCollection.id)" class="delete-btn" title="Delete collection">
                   <span class="btn-icon">🗑️</span>
                   <span class="btn-text">Delete</span>
                 </button>
@@ -80,24 +80,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { GetHeaderCollections, CreateHeaderCollection, UpdateHeaderCollection, DeleteHeaderCollection, AddHeaderTemplate, UpdateHeaderTemplate, DeleteHeaderTemplate } from '../../bindings/captain-api/headerservice'
-import { HeaderService } from '../../bindings/captain-api'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { CollectionService, EventBusService } from '../../bindings/captain-api'
 import HeaderCollectionForm from './HeaderCollectionForm.vue'
+import { main } from '../../bindings/captain-api/models'
 
 // Define props and emits
 const props = defineProps({
   show: {
     type: Boolean,
     default: false
+  },
+  collection: {
+    type: Object as () => main.Collection,
+    required: true
   }
 })
 
 const emit = defineEmits(['close', 'open'])
 
-const headerCollections = ref([])
 const showManageModal = computed(() => props.show)
-const editingCollection = ref(null)
+const editingCollection = ref<main.HeaderCollection | null>(null)
 const searchQuery = ref('')
 const sortOption = ref('name-asc') // Default sort option
 // Form data for new collections
@@ -105,6 +108,7 @@ const newCollectionTemplate = {
   id: '',
   name: '',
   description: '',
+  headerTemplates: [],
   headers: [{ key: '', value: '' }]
 }
 
@@ -114,7 +118,7 @@ const formData = ref({ ...newCollectionTemplate })
 // Filter and sort collections based on search query and sort option
 const filteredCollections = computed(() => {
   // First filter by search query
-  let filtered = headerCollections.value
+  let filtered = props.collection.headerCollections
   
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
@@ -149,8 +153,6 @@ const handleOpenHeaderSettings = () => {
 
 // Load header collections on component mount and set up event listener
 onMounted(async () => {
-  await loadHeaderCollections()
-  
   // Add event listener for opening header settings from other components
   document.addEventListener('open-header-settings', handleOpenHeaderSettings)
 })
@@ -160,63 +162,23 @@ onUnmounted(() => {
   document.removeEventListener('open-header-settings', handleOpenHeaderSettings)
 })
 
-// Load header collections
-const loadHeaderCollections = async () => {
-  try {
-    const collections = await GetHeaderCollections()
-    
-    // Convert backend format to frontend format
-    headerCollections.value = collections.map(collection => {
-      // Extract headers from headerTemplates if available
-      const headers = []
-      if (collection.headerTemplates && collection.headerTemplates.length > 0) {
-        // Use the first template's headers
-        const template = collection.headerTemplates[0]
-        if (template && template.headers) {
-          if (Array.isArray(template.headers)) {
-            headers.push(...template.headers.map(h => ({ ...h })))
-          } else if (typeof template.headers === 'object') {
-            Object.entries(template.headers).forEach(([key, value]) => {
-              headers.push({ key, value })
-            })
-          }
-        }
-      }
-      
-      return {
-        id: collection.id,
-        name: collection.name,
-        description: collection.description,
-        headers,
-        headerTemplates: collection.headerTemplates || [],
-        createdAt: collection.createdAt,
-        updatedAt: collection.updatedAt
-      }
-    })
-    
-    console.log('Loaded header collections:', headerCollections.value)
-  } catch (error) {
-    console.error('Failed to load header collections:', error)
-  }
-}
-
 // Edit a header collection
 const editHeaderCollection = (collection) => {
   console.log('Starting edit of collection:', collection)
   
   // Get the latest version of the collection from the list
-  const latestCollection = headerCollections.value.find(c => c.id === collection.id) || collection
+  const latestCollection = props.collection.headerCollections.find(c => c.id === collection.id) || collection
   
   // Store the collection being edited
   editingCollection.value = { ...latestCollection }
   
   // Create a clean copy of the headers
   let headers = []
-  if (latestCollection.headers) {
-    if (Array.isArray(latestCollection.headers)) {
-      headers = latestCollection.headers.map(h => ({ ...h }))
-    } else if (typeof latestCollection.headers === 'object') {
-      headers = Object.entries(latestCollection.headers).map(([key, value]) => ({ key, value }))
+  if (latestCollection.headerTemplates[0].headers) {
+    if (Array.isArray(latestCollection.headerTemplates[0].headers)) {
+      headers = latestCollection.headerTemplates[0].headers.map(h => ({ ...h }))
+    } else if (typeof latestCollection.headerTemplates[0].headers === 'object') {
+      headers = Object.entries(latestCollection.headerTemplates[0].headers).map(([key, value]) => ({ key, value }))
     }
   }
   
@@ -299,11 +261,10 @@ const saveHeaderCollection = async (collectionData) => {
       updatedAt: now,
     }
     
-    const collection = {
+    const collection : main.HeaderCollection = {
       id: collectionData.id || `collection_${Date.now()}`,
       name: collectionData.name.trim(),
       description: collectionData.description.trim(),
-      headers: validHeaders,
       headerTemplates: [template],
       createdAt: editingCollection.value?.createdAt || now,
       updatedAt: now
@@ -312,27 +273,26 @@ const saveHeaderCollection = async (collectionData) => {
     if (editingCollection.value) {
       // Update existing collection
       console.log('Updating collection:', collection)
-      const updated = await HeaderService.UpdateHeaderCollection(collection)
+      const updatedResult = await CollectionService.UpdateHeaderCollection(props.collection.id, collection)
       
       // Update in local array
-      const index = headerCollections.value.findIndex(c => c.id === collection.id)
-      if (index !== -1 && updated) {
-        headerCollections.value[index] = updated
+      const index = props.collection.headerCollections.findIndex(c => c.id === collection.id)
+      if (index !== -1 && updatedResult) {
+        props.collection.headerCollections[index] = updatedResult
+        EventBusService.EmitEvent('header-collection-updated', updatedResult)
       }
     } else {
       // Create new collection
-      const newCollection = await HeaderService.CreateHeaderCollection(collection)
+      const newCollectionResult = await CollectionService.CreateHeaderCollection(props.collection.id, collection)
       
       // Add the new collection to the local array
-      if (newCollection) {
-        headerCollections.value.push(newCollection)
+      if (newCollectionResult) {
+        props.collection.headerCollections.push(newCollectionResult)
+        EventBusService.EmitEvent('header-collection-updated', newCollectionResult)
       } else {
         throw new Error('Failed to create collection: No data returned from server')
       }
     }
-    
-    // Reload collections to get the latest data from the server
-    await loadHeaderCollections()
     
     // Reset form and close modal
     cancelEdit()
@@ -345,8 +305,8 @@ const saveHeaderCollection = async (collectionData) => {
 }
 
 // Delete header collection with confirmation
-const deleteHeaderCollection = async (collectionId) => {
-  const collection = headerCollections.value.find(c => c.id === collectionId)
+const deleteHeaderCollection = async (headerCollectionId) => {
+  const collection = props.collection.headerCollections.find(c => c.id === headerCollectionId)
   if (!collection) return
   
   // Show confirmation dialog
@@ -354,10 +314,10 @@ const deleteHeaderCollection = async (collectionId) => {
   
   if (confirmDelete) {
     try {
-      await DeleteHeaderCollection(collectionId)
+      await CollectionService.DeleteHeaderCollection(props.collection.id, headerCollectionId)
       
       // Remove from local array
-      headerCollections.value = headerCollections.value.filter(c => c.id !== collectionId)
+      props.collection.headerCollections = props.collection.headerCollections.filter(c => c.id !== headerCollectionId)
     } catch (error) {
       console.error('Failed to delete header collection:', error)
     }
@@ -426,13 +386,13 @@ const importHeaderCollection = (event) => {
       }
       
       // Check for duplicate name
-      const existingNames = headerCollections.value.map(c => c.name.toLowerCase())
+      const existingNames = props.collection.headerCollections.map(c => c.name.toLowerCase())
       if (existingNames.includes(newCollection.name.toLowerCase())) {
         newCollection.name += ' (Imported)'
       }
       
       // Add to collections
-      headerCollections.value.push(newCollection)
+      props.collection.headerCollections.push(newCollection)
       
       // Show success message
       alert(`Successfully imported "${newCollection.name}" collection`)

@@ -1,8 +1,11 @@
-<script setup>
-import { ref, computed } from 'vue'
+<script setup lang="ts">
+import { ref, computed, onMounted, watch } from 'vue'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
 import CollectionSidebar from './components/CollectionSidebar.vue'
+import { Events } from '@wailsio/runtime'
+import { CollectionService } from '../bindings/captain-api'
+import { main } from '../bindings/captain-api/models'
 
 // Tabs management
 const tabs = ref([
@@ -14,18 +17,38 @@ const tabCounter = ref(2)
 // References
 const requestBuilderRefs = ref({})
 const collectionSidebarRef = ref(null)
-const currentCollectionId = ref('default')
+const currentCollectionId = ref(null)
 
 // Computed properties
 const activeTab = computed(() => tabs.value.find(tab => tab.id === activeTabId.value))
 const activeResponse = computed(() => activeTab.value?.response)
 const selectedHeaders = ref(null)
 
-const handleHeaderCollectionSelected = (headers) => {
+onMounted(() => {
+  Events.On('header-collection-updated', (updatedCollection) => {
+    if (selectedHeaders.value && selectedHeaders.value.id === updatedCollection.id) {
+      selectedHeaders.value = updatedCollection.headers
+    }
+  })
+  
+  // Load collections on mount and set the first one as active
+  CollectionService.GetAllCollections().then(collections => {
+    if (collections.length > 0) {
+      currentCollectionId.value = collections[0].id
+    }
+  })
+})
+
+const handleCollectionSelected = (collectionId: string) => {
+  currentCollectionId.value = collectionId
+  selectedHeaders.value = null // Reset headers when collection changes
+}
+
+const handleHeaderCollectionSelected = (headers: main.HeaderCollection) => {
   selectedHeaders.value = headers
 }
 
-const handleResponseReceived = async (responseData) => {
+const handleResponseReceived = async (responseData: main.ResponseData) => {
   // Update the response for the active tab
   const index = tabs.value.findIndex(tab => tab.id === activeTabId.value)
   if (index !== -1) {
@@ -259,10 +282,13 @@ const setRequestBuilderRef = (el, tabId) => {
       <div class="main-layout">
         <!-- Sidebar -->
         <aside class="sidebar">
-          <CollectionSidebar 
+          <CollectionSidebar
+            v-if="currentCollectionId"
             ref="collectionSidebarRef"
+            :collection-id="currentCollectionId"
             @load-request="handleLoadRequest"
             @new-request="handleNewRequest"
+            @collection-selected="handleCollectionSelected"
             @header-collection-selected="handleHeaderCollectionSelected"
           />
         </aside>

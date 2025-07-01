@@ -28,28 +28,8 @@ func NewHeaderService() *HeaderService {
 	}
 }
 
-// HeaderTemplate represents a reusable header template
-type HeaderTemplate struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Headers     map[string]string `json:"headers"`
-	CreatedAt   time.Time         `json:"createdAt"`
-	UpdatedAt   time.Time         `json:"updatedAt"`
-}
-
-// HeaderCollection represents a collection of header templates
-type HeaderCollection struct {
-	ID              string           `json:"id"`
-	Name            string           `json:"name"`
-	Description     string           `json:"description"`
-	HeaderTemplates []HeaderTemplate `json:"headerTemplates"`
-	CreatedAt       time.Time        `json:"createdAt"`
-	UpdatedAt       time.Time        `json:"updatedAt"`
-}
-
-// GetHeaderCollections returns all header collections
-func (h *HeaderService) GetHeaderCollections(ctx context.Context) ([]HeaderCollection, error) {
+// GetHeaderCollections returns all header collections for a given collection
+func (h *HeaderService) GetHeaderCollections(ctx context.Context, collectionID string) ([]HeaderCollection, error) {
 	files, err := os.ReadDir(h.headersPath)
 	if err != nil {
 		return []HeaderCollection{}, nil
@@ -62,7 +42,9 @@ func (h *HeaderService) GetHeaderCollections(ctx context.Context) ([]HeaderColle
 			if err != nil {
 				continue
 			}
-			collections = append(collections, *collection)
+			if collection.CollectionID == collectionID {
+				collections = append(collections, *collection)
+			}
 		}
 	}
 
@@ -75,7 +57,7 @@ func (h *HeaderService) GetHeaderCollection(ctx context.Context, collectionID st
 }
 
 // CreateHeaderCollection creates a new header collection
-func (h *HeaderService) CreateHeaderCollection(ctx context.Context, collection HeaderCollection) error {
+func (h *HeaderService) CreateHeaderCollection(ctx context.Context, collection HeaderCollection) (*HeaderCollection, error) {
 	if collection.ID == "" {
 		collection.ID = fmt.Sprintf("header_col_%d", time.Now().UnixNano())
 	}
@@ -83,13 +65,26 @@ func (h *HeaderService) CreateHeaderCollection(ctx context.Context, collection H
 	collection.CreatedAt = time.Now()
 	collection.UpdatedAt = time.Now()
 
-	return h.saveHeaderCollection(&collection)
+	err := h.saveHeaderCollection(&collection)
+	if err != nil {
+		return nil, err
+	}
+	return &collection, nil
 }
 
 // UpdateHeaderCollection updates an existing header collection
-func (h *HeaderService) UpdateHeaderCollection(ctx context.Context, collection HeaderCollection) error {
+func (h *HeaderService) UpdateHeaderCollection(ctx context.Context, collection HeaderCollection) (*HeaderCollection, error) {
+	existing, err := h.GetHeaderCollection(ctx, collection.ID)
+	if err != nil {
+		return nil, err
+	}
+	collection.CollectionID = existing.CollectionID
 	collection.UpdatedAt = time.Now()
-	return h.saveHeaderCollection(&collection)
+	err = h.saveHeaderCollection(&collection)
+	if err != nil {
+		return nil, err
+	}
+	return &collection, nil
 }
 
 // DeleteHeaderCollection deletes a header collection
@@ -178,17 +173,17 @@ func (h *HeaderService) ApplyHeaderTemplate(ctx context.Context, collectionID, t
 			// Merge template headers with existing headers
 			// Existing headers take precedence
 			result := make(map[string]string)
-			
+
 			// First add template headers
 			for key, value := range template.Headers {
 				result[key] = value
 			}
-			
+
 			// Then add existing headers (overriding template headers)
 			for key, value := range existingHeaders {
 				result[key] = value
 			}
-			
+
 			return result, nil
 		}
 	}

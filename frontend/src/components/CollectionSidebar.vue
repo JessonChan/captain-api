@@ -91,14 +91,14 @@
             <div class="setting-item">
               <label class="setting-label">Headers</label>
               <select 
-                :value="activeHeaderCollections.get(collection.id) || ''"
+                :value="collection.activeHeaderCollectionId || ''"
                 @change="setActiveHeaderCollection(collection.id, $event.target.value)"
                 @click.stop
                 class="setting-select"
               >
                 <option value="">None</option>
                 <option 
-                  v-for="headerCollection in headerCollections"
+                  v-for="headerCollection in collection.headerCollections"
                   :key="headerCollection.id"
                   :value="headerCollection.id"
                 >
@@ -330,7 +330,7 @@
     />
     
     <!-- Header Settings Modal -->
-    <HeaderSettings :show="showHeaderSettingsModal" @close="closeHeaderSettingsModal" />
+    <HeaderSettings v-if="selectedCollection" :show="showHeaderSettingsModal" :collection="selectedCollection" @close="closeHeaderSettingsModal" />
     
     <!-- Fixed Add Collection Button at Bottom -->
     <div class="sidebar-footer" v-if="currentView === 'collections'">
@@ -358,18 +358,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { CollectionService } from '../../bindings/captain-api'
-import { GetHeaderCollections } from '../../bindings/captain-api/headerservice'
 import ConfirmDialog from './ConfirmDialog.vue'
 import RequestLogs from './RequestLogs.vue'
 import { Events } from '@wailsio/runtime'
 import HeaderSettings from './HeaderSettings.vue'
+import { main } from '../../bindings/captain-api/models'
 
-const emit = defineEmits(['load-request', 'new-request', 'header-collection-selected'])
+const props = defineProps({
+  collectionId: {
+    type: String,
+    required: true
+  }
+})
+
+const emit = defineEmits(['load-request', 'new-request', 'header-collection-selected', 'collection-selected'])
 
 const currentView = ref('collections')
-const collections = ref([])
+const collections = ref<main.Collection[]>([])
 const expandedCollections = ref(new Set(['default']))
 const showNewCollectionModal = ref(false)
 const newCollection = ref({
@@ -378,9 +385,8 @@ const newCollection = ref({
 })
 
 // Header collection management
-const headerCollections = ref([])
-const activeHeaderCollections = ref(new Map()) // collectionId -> headerCollectionId
 const showHeaderSettingsModal = ref(false)
+const selectedHeaderCollectionId = ref('')
 
 // Environment management
 const showEnvironmentModal = ref(false)
@@ -408,10 +414,20 @@ const eventSubscriptions = []
 
 const selectedRequestId = ref('')
 
-onMounted(() => {
+const selectedCollection = computed(() => {
+  return collections.value.find(c => c.id === selectedCollectionId.value)
+})
+
+watch(() => props.collectionId, (newCollectionId) => {
+  if (newCollectionId) {
+    selectedHeaderCollectionId.value = ''
+    emit('header-collection-selected', null)
+  }
+})
+
+onMounted(async () => {
   console.log('CollectionSidebar mounted, loading collections...')
-  loadCollections()
-  loadHeaderCollections()
+  await loadCollections()
   document.addEventListener('click', closeMenu)
 
   // Setup event listeners
@@ -426,6 +442,11 @@ onMounted(() => {
       // Emit an event to notify other components that collections were updated
       // Events.Emit('collections-updated')
     }, 100)
+  })
+
+  Events.On('header-collection-updated', (customEvent: CustomEvent) => {
+    console.log('header-collection-updated event received, reloading header collections...', customEvent)
+    loadCollections()
   })
   
   
@@ -450,13 +471,6 @@ onUnmounted(() => {
   eventSubscriptions.length = 0
 })
 
-onUnmounted(() => {
-  document.removeEventListener('click', closeMenu)
-  if (unsubscribeRequestSaved) {
-    unsubscribeRequestSaved()
-  }
-})
-
 // Load collections and update the UI
 async function loadCollections() {
   console.log('Loading collections...')
@@ -475,23 +489,16 @@ async function loadCollections() {
       return
     }
     
-    // Initialize active header collections from persisted data
-    collections.value.forEach(c => {
-      if (c.activeHeaderCollectionId) {
-        activeHeaderCollections.value.set(c.id, c.activeHeaderCollectionId)
-      }
-    })
-    
-    console.log('Collections loaded successfully:', collections.value)
-    
     // If there's a selected collection, ensure it's still valid
     if (selectedCollectionId.value) {
       const collectionExists = collections.value.some(c => c.id === selectedCollectionId.value)
       if (!collectionExists && collections.value.length > 0) {
         selectedCollectionId.value = collections.value[0].id
+        emit('collection-selected', selectedCollectionId.value)
       }
     } else if (collections.value.length > 0) {
       selectedCollectionId.value = collections.value[0].id
+      emit('collection-selected', selectedCollectionId.value)
     }
     
     // Force update the selected request if needed
@@ -503,6 +510,17 @@ async function loadCollections() {
         selectedRequestId.value = ''
       }
     }
+    
+    // Set the active header collection for the current collection
+    const currentCollection = collections.value.find(c => c.id === selectedCollectionId.value)
+    if (currentCollection && currentCollection.activeHeaderCollectionId) {
+      const activeHeaderCollection = currentCollection.headerCollections.find(hc => hc.id === currentCollection.activeHeaderCollectionId)
+      if (activeHeaderCollection) {
+        selectedHeaderCollectionId.value = activeHeaderCollection.id
+        emit('header-collection-selected', activeHeaderCollection.headerTemplates[0].headers)
+      }
+    }
+    
   } catch (error) {
     console.error('Failed to load collections:', error)
   }
@@ -513,6 +531,7 @@ const toggleCollection = (collectionId) => {
     expandedCollections.value.delete(collectionId)
   } else {
     expandedCollections.value.add(collectionId)
+    emit('collection-selected', collectionId)
   }
 }
 
@@ -726,68 +745,18 @@ const deleteEnvironment = async (envId) => {
 }
 
 // Header collection methods
-const loadHeaderCollections = async () => {
-  try {
-    const collections = await GetHeaderCollections()
-    
-    // Convert backend format to frontend format
-    headerCollections.value = collections.map(collection => {
-      // Extract headers from headerTemplates if available
-      const headers = {}
-      if (collection.headerTemplates && collection.headerTemplates.length > 0) {
-        // Use the first template's headers
-        const template = collection.headerTemplates[0]
-        if (template && template.headers) {
-          console.log('Template headers:', template.headers,typeof template.headers)
-          Object.entries(template.headers).forEach(([key, value]) => {
-            console.log('list Key:', key, 'Value:', value)
-          })
-          for(let key in template.headers){
-            console.log('in Key:', key, 'Value:', template.headers[key])
-            headers[key]=template.headers[key]
-          }
-          // Convert each header value to string to prevent [object Object] display
-          Object.entries(template.headers).forEach(([key, value]) => {
-           // headers[key] = typeof value === 'object' ? JSON.stringify(value) : String(value)
-          })
-        }
-      }
-      
-      return {
-        id: collection.id,
-        name: collection.name,
-        headers
-      }
-    })
-  } catch (error) {
-    console.error('Failed to load header collections:', error)
-  }
-}
-
-const getActiveHeaderCollection = (collectionId) => {
-  return activeHeaderCollections.value.get(collectionId) || ''
-}
-
-const getActiveHeaderCollectionData = (collectionId) => {
-  const activeId = activeHeaderCollections.value.get(collectionId)
-  return headerCollections.value.find(hc => hc.id === activeId)
-}
-
-const setActiveHeaderCollection = async (collectionId, headerCollectionId) => {
+const setActiveHeaderCollection = async (collectionId: string, headerCollectionId: string) => {
   try {
     await CollectionService.SetActiveHeaderCollection(collectionId, headerCollectionId)
-    if (headerCollectionId) {
-      activeHeaderCollections.value.set(collectionId, headerCollectionId)
-    } else {
-      activeHeaderCollections.value.delete(collectionId)
-    }
-
-    const activeHeaderCollection = getActiveHeaderCollectionData(collectionId)
-    emit('header-collection-selected', activeHeaderCollection ? activeHeaderCollection.headers : null)
+    await loadCollections()
   } catch (error) {
     console.error('Failed to set active header collection:', error)
-    alert('Failed to set active header collection')
   }
+}
+
+const selectHeaderCollection = (headerCollection) => {
+  selectedHeaderCollectionId.value = headerCollection.id
+  emit('header-collection-selected', headerCollection.headerTemplates[0].headers)
 }
 
 // Open header manager modal
@@ -1972,109 +1941,43 @@ defineExpose({
   transition: all 0.2s;
   margin-top: 5px;
 }
-
-.add-header-btn:hover {
-  background: #218838;
-  transform: translateY(-1px);
+.header-collections-list {
+  margin-top: 10px;
+  border-top: 1px solid #eee;
+  padding-top: 10px;
 }
 
-.toggle-btn.active {
-  background: #007bff;
-  color: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+.header-collections-list .list-header {
+  padding: 0 10px 10px;
 }
 
-.toggle-btn.active:hover {
-  background: #0056b3;
-  color: white;
-}
-
-/* Header Collection Styles */
-.header-collection-section {
-  margin-bottom: 20px;
-  padding: 16px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-  border-radius: 12px;
-  border: 1px solid #e3e6ea;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  transition: all 0.2s ease;
-}
-
-
-
-
-
-/* Collection Settings Styles */
-.collection-settings {
-  margin-bottom: 12px;
-  padding: 0 12px;
-}
-
-.settings-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  padding: 12px;
-}
-
-.setting-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.setting-label {
-  font-size: 11px;
-  font-weight: 600;
+.header-collections-list .list-header h6 {
+  margin: 0;
+  font-size: 12px;
   color: #6c757d;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
-.setting-select {
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-  background: white;
-  font-size: 12px;
-  color: #495057;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.setting-select:hover {
-  border-color: #adb5bd;
-}
-
-.setting-select:focus {
-  outline: none;
-  border-color: #80bdff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-}
-
-/* Header Settings Modal Styles */
-.header-settings-modal {
-  width: 90vw;
-  max-width: 1200px;
-  height: 90vh;
-  max-height: 800px;
-  padding: 0;
-  overflow: hidden;
-}
-
-.header-settings-modal .modal-content {
-  height: 100%;
+.header-collection-item {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
 }
 
-.empty-icon {
-  width: 24px;
-  height: 24px;
-  color: #ced4da;
+.header-collection-item:hover {
+  background-color: #f0f0f0;
+}
+
+.header-collection-item.active {
+  background-color: #e6f7ff;
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.header-collection-name {
+  font-size: 13px;
 }
 </style>
