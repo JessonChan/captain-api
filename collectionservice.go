@@ -52,25 +52,15 @@ type CollectionEnvironment struct {
 	IsActive    bool   `json:"isActive"`
 }
 
-// HeaderTemplate represents a reusable header template
-type HeaderTemplate struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Headers     map[string]string `json:"headers"`
-	CreatedAt   time.Time         `json:"createdAt"`
-	UpdatedAt   time.Time         `json:"updatedAt"`
-}
-
 // HeaderCollection represents a collection of header templates
 type HeaderCollection struct {
-	ID              string           `json:"id"`
-	CollectionID    string           `json:"collectionId"`
-	Name            string           `json:"name"`
-	Description     string           `json:"description"`
-	HeaderTemplates []HeaderTemplate `json:"headerTemplates"`
-	CreatedAt       time.Time        `json:"createdAt"`
-	UpdatedAt       time.Time        `json:"updatedAt"`
+	ID           string            `json:"id"`
+	CollectionID string            `json:"collectionId"`
+	Name         string            `json:"name"`
+	Description  string            `json:"description"`
+	Headers      map[string]string `json:"headers"`
+	CreatedAt    time.Time         `json:"createdAt"`
+	UpdatedAt    time.Time         `json:"updatedAt"`
 }
 
 // Collection represents a collection of requests

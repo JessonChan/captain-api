@@ -517,7 +517,7 @@ async function loadCollections() {
       const activeHeaderCollection = currentCollection.headerCollections.find(hc => hc.id === currentCollection.activeHeaderCollectionId)
       if (activeHeaderCollection) {
         selectedHeaderCollectionId.value = activeHeaderCollection.id
-        emit('header-collection-selected', activeHeaderCollection.headerTemplates[0].headers)
+        emit('header-collection-selected', activeHeaderCollection.headers)
       }
     }
     
@@ -756,7 +756,7 @@ const setActiveHeaderCollection = async (collectionId: string, headerCollectionI
 
 const selectHeaderCollection = (headerCollection) => {
   selectedHeaderCollectionId.value = headerCollection.id
-  emit('header-collection-selected', headerCollection.headerTemplates[0].headers)
+  emit('header-collection-selected', headerCollection.headers)
 }
 
 // Open header manager modal

@@ -46,7 +46,7 @@
                 <div class="header-collection-name">{{ headerCollection.name }}</div>
                 <div class="header-collection-description">{{ headerCollection.description }}</div>
                 <div class="header-collection-stats">
-                  <span class="header-count-badge">{{ Object.keys(headerCollection.headerTemplates[0].headers || {}).length }} headers</span>
+                  <span class="header-count-badge">{{ Object.keys(headerCollection.headers || {}).length }} headers</span>
                 </div>
               </div>
               <div class="header-collection-actions">
@@ -108,7 +108,6 @@ const newCollectionTemplate = {
   id: '',
   name: '',
   description: '',
-  headerTemplates: [],
   headers: [{ key: '', value: '' }]
 }
 
@@ -174,11 +173,11 @@ const editHeaderCollection = (collection) => {
   
   // Create a clean copy of the headers
   let headers = []
-  if (latestCollection.headerTemplates[0].headers) {
-    if (Array.isArray(latestCollection.headerTemplates[0].headers)) {
-      headers = latestCollection.headerTemplates[0].headers.map(h => ({ ...h }))
-    } else if (typeof latestCollection.headerTemplates[0].headers === 'object') {
-      headers = Object.entries(latestCollection.headerTemplates[0].headers).map(([key, value]) => ({ key, value }))
+  if (latestCollection.headers) {
+    if (Array.isArray(latestCollection.headers)) {
+      headers = latestCollection.headers.map(h => ({ ...h }))
+    } else if (typeof latestCollection.headers === 'object') {
+      headers = Object.entries(latestCollection.headers).map(([key, value]) => ({ key, value }))
     }
   }
   
@@ -250,22 +249,11 @@ const saveHeaderCollection = async (collectionData) => {
     
     const now = new Date().toISOString()
     
-    // Create a header template from the headers
-    const template = {
-      id: collectionData.id ? `${collectionData.id}_template` : '',
-      name: `${collectionData.name.trim()} Template`,
-      description: collectionData.description.trim(),
-      headers: headersObject,
-      isActive: true,
-      createdAt: editingCollection.value?.createdAt || now,
-      updatedAt: now,
-    }
-    
     const collection : main.HeaderCollection = {
       id: collectionData.id || `collection_${Date.now()}`,
       name: collectionData.name.trim(),
       description: collectionData.description.trim(),
-      headerTemplates: [template],
+      headers: headersObject,
       createdAt: editingCollection.value?.createdAt || now,
       updatedAt: now
     }

@@ -43,7 +43,7 @@ const updateSelectedHeaders = () => {
   if (collection) {
     const activeHeaderCollection = collection.headerCollections.find((h: main.HeaderCollection) => h.id === collection.activeHeaderCollectionId)
     if (activeHeaderCollection) {
-      selectedHeaders.value = activeHeaderCollection.headerTemplates[0]?.headers
+      selectedHeaders.value = activeHeaderCollection.headers
     }
   }
 }
