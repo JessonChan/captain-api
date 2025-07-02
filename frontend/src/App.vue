@@ -35,6 +35,8 @@ onMounted(() => {
   CollectionService.GetAllCollections().then(collections => {
     if (collections.length > 0) {
       currentCollectionId.value = collections[0].id
+      console.log("collections", collections)
+      selectedHeaders.value = collections[0].headerCollections.find(h => h.id === collections[0].activeHeaderCollectionId)?.headerTemplates[0].headers
     }
   })
 })
