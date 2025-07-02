@@ -17,6 +17,7 @@ const tabCounter = ref(2)
 // References
 const requestBuilderRefs = ref({})
 const collectionSidebarRef = ref(null)
+const collections = ref<main.Collection[]>([])
 const currentCollectionId = ref(null)
 
 // Computed properties
@@ -24,26 +25,39 @@ const activeTab = computed(() => tabs.value.find(tab => tab.id === activeTabId.v
 const activeResponse = computed(() => activeTab.value?.response)
 const selectedHeaders = ref(null)
 
+const loadCollections = () => {
+  CollectionService.GetAllCollections().then(allCollections => {
+    collections.value = allCollections
+    if (allCollections.length > 0) {
+      if (!currentCollectionId.value || !allCollections.some(c => c.id === currentCollectionId.value)) {
+        currentCollectionId.value = allCollections[0].id
+      }
+      updateSelectedHeaders()
+    }
+  })
+}
+
+const updateSelectedHeaders = () => {
+  selectedHeaders.value = null
+  const collection = collections.value.find((c: main.Collection) => c.id === currentCollectionId.value)
+  if (collection) {
+    const activeHeaderCollection = collection.headerCollections.find((h: main.HeaderCollection) => h.id === collection.activeHeaderCollectionId)
+    if (activeHeaderCollection) {
+      selectedHeaders.value = activeHeaderCollection.headerTemplates[0]?.headers
+    }
+  }
+}
+
 onMounted(() => {
-  Events.On('header-collection-updated', (updatedCollection) => {
-    if (selectedHeaders.value && selectedHeaders.value.id === updatedCollection.id) {
-      selectedHeaders.value = updatedCollection.headers
-    }
-  })
-  
-  // Load collections on mount and set the first one as active
-  CollectionService.GetAllCollections().then(collections => {
-    if (collections.length > 0) {
-      currentCollectionId.value = collections[0].id
-      console.log("collections", collections)
-      selectedHeaders.value = collections[0].headerCollections.find(h => h.id === collections[0].activeHeaderCollectionId)?.headerTemplates[0].headers
-    }
-  })
+  loadCollections()
+  Events.On('header-collection-updated', loadCollections)
+  Events.On('collections-updated', loadCollections)
+  Events.On('request-saved', loadCollections)
 })
 
 const handleCollectionSelected = (collectionId: string) => {
   currentCollectionId.value = collectionId
-  selectedHeaders.value = null // Reset headers when collection changes
+  updateSelectedHeaders()
 }
 
 const handleHeaderCollectionSelected = (headers: main.HeaderCollection) => {
