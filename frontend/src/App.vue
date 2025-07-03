@@ -9,7 +9,7 @@ import { main } from '../bindings/captain-api/models'
 
 // Tabs management
 const tabs = ref([
-  { id: 'tab-1', name: 'New Request', active: true, request: null, response: null }
+  { id: 'tab-1', name: 'New Request', active: true, request: null, response: null, requestId: null }
 ])
 const activeTabId = ref('tab-1')
 const tabCounter = ref(2)
@@ -52,7 +52,13 @@ onMounted(() => {
   loadCollections()
   Events.On('header-collection-updated', loadCollections)
   Events.On('collections-updated', loadCollections)
-  Events.On('request-saved', loadCollections)
+  Events.On('request-saved', (savedRequest) => {
+    loadCollections()
+    const active = activeTab.value
+    if (active && !active.requestId) {
+      active.requestId = savedRequest.id
+    }
+  })
 })
 
 const handleCollectionSelected = (collectionId: string) => {
@@ -115,10 +121,8 @@ const handleLoadRequest = (logData) => {
     }
   }
   
-  // Check if there's already a tab with this URL
-  const existingTabIndex = tabs.value.findIndex(tab => {
-    return tab.request && tab.request.url === requestUrl
-  })
+  // Check if there's already a tab with this request ID
+  const existingTabIndex = tabs.value.findIndex(tab => tab.requestId === requestData.id)
   
   if (existingTabIndex !== -1) {
     // If tab with this URL exists, switch to it
@@ -145,7 +149,7 @@ const handleLoadRequest = (logData) => {
     }
   } else {
     // Create a new tab for this request
-    addNewTab(requestData, logData.response)
+    addNewTab(requestData, logData.response, requestData.id)
   }
 }
 
@@ -194,7 +198,7 @@ const handleNewRequest = () => {
   addNewTab()
 }
 
-const addNewTab = (requestData = null, responseData = null) => {
+const addNewTab = (requestData = null, responseData = null, requestId = null) => {
   const newTabId = `tab-${tabCounter.value}`
   tabCounter.value++
   
@@ -215,7 +219,8 @@ const addNewTab = (requestData = null, responseData = null) => {
     name: tabName,
     active: true,
     request: requestData,
-    response: responseData
+    response: responseData,
+    requestId: requestId
   })
   
   // Set the new tab as active
