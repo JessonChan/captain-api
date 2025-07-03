@@ -12,7 +12,7 @@
         <button @click="updateRequest" :disabled="!isDirty" class="btn btn--save" :class="{ 'is-disabled': !isDirty }">
           Save
         </button>
-        <button @click="saveRequest" class="btn btn--clone">
+        <button @click="cloneRequest" class="btn btn--clone">
           Clone
         </button>
       </div>
@@ -126,7 +126,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['response-received', 'request-updated'])
+const emit = defineEmits(['response-received', 'request-updated', 'load-request'])
 
 const request = ref({
   method: 'GET',
@@ -370,6 +370,33 @@ const sendRequest = async () => {
     emit('response-received', errorResponse)
   } finally {
     loading.value = false
+  }
+}
+
+async function cloneRequest() {
+  const newName = `${requestName.value || 'Request'} (Copy)`;
+
+  const requestToSave = {
+    name: newName,
+    method: request.value.method,
+    url: request.value.url,
+    headers: headersObject.value,
+    body: request.value.body,
+    description: ''
+  };
+
+  try {
+    loading.value = true;
+    const clonedRequest = await CollectionService.SaveRequest(props.collectionId, requestToSave);
+    
+    emit('load-request', clonedRequest);
+    
+    EventBusService.EmitEvent('request-saved');
+
+  } catch (error) {
+    console.error('Failed to clone request:', error);
+  } finally {
+    loading.value = false;
   }
 }
 

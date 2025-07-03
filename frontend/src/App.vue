@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
 import CollectionSidebar from './components/CollectionSidebar.vue'
@@ -198,6 +198,7 @@ const handleNewRequest = () => {
   addNewTab()
 }
 
+
 const addNewTab = (requestData = null, responseData = null, requestId = null) => {
   const newTabId = `tab-${tabCounter.value}`
   tabCounter.value++
@@ -227,7 +228,7 @@ const addNewTab = (requestData = null, responseData = null, requestId = null) =>
   activeTabId.value = newTabId
   
   // Initialize the request builder in the next tick
-  setTimeout(() => {
+  nextTick(() => {
     if (requestBuilderRefs.value[newTabId]) {
       if (requestData) {
         requestBuilderRefs.value[newTabId].loadRequest(requestData)
@@ -235,7 +236,7 @@ const addNewTab = (requestData = null, responseData = null, requestId = null) =>
         requestBuilderRefs.value[newTabId].newRequest()
       }
     }
-  }, 0)
+  })
 }
 
 const switchTab = (tabId) => {
@@ -339,6 +340,7 @@ const setRequestBuilderRef = (el, tabId) => {
               :virtualHeaders="selectedHeaders"
               @response-received="handleResponseReceived"
               @request-updated="handleRequestUpdated"
+              @load-request="handleLoadRequest"
             />
           </div>
           
