@@ -110,7 +110,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { HTTPService, CollectionService, EventBusService } from '../../bindings/captain-api'
 import { Events } from '@wailsio/runtime'
@@ -462,7 +462,7 @@ async function updateRequest() {
     EventBusService.EmitEvent('request-saved')
     // Update the original request and snapshot
     originalRequest.value = { ...requestToUpdate }
-    originalRequestSnapshot.value = createSnapshot(request.value, requestName.value, headersList)
+    originalRequestSnapshot.value = createSnapshot(request.value, requestName.value, headersList.value)
   } catch (error) {
     console.error('Failed to update request:', error)
   }
@@ -473,7 +473,7 @@ const originalRequest = ref(null)
 const originalRequestSnapshot = ref('')
 
 const createSnapshot = (req, name, headersList) => {
-  console.log('Creating snapshot for request:', req)
+  console.log('Creating snapshot for request:', req,name,headersList)
   const headers = {}
   if (headersList) {
     headersList.forEach(h => {
