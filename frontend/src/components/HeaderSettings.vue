@@ -58,7 +58,7 @@
                   <span class="btn-icon">📤</span>
                   <span class="btn-text">Export</span>
                 </button>
-                <button @click="deleteHeaderCollection(headerCollection.id)" class="delete-btn" title="Delete collection">
+                <button @click="deleteHeaderCollection(headerCollection)" class="delete-btn" title="Delete collection">
                   <span class="btn-icon">🗑️</span>
                   <span class="btn-text">Delete</span>
                 </button>
@@ -76,6 +76,15 @@
         </div>
       </div>
     </div>
+    <ConfirmDialog 
+      ref="confirmDialog"
+      title="Delete Header Collection"
+      :message="confirmMessage"
+      confirm-text="Delete"
+      cancel-text="Cancel"
+      @confirm="handleConfirmDelete"
+      @cancel="handleCancelDelete"
+    />
   </div>
 </template>
 
@@ -83,7 +92,18 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { CollectionService, EventBusService } from '../../bindings/captain-api'
 import HeaderCollectionForm from './HeaderCollectionForm.vue'
+import ConfirmDialog from './ConfirmDialog.vue'
 import { main } from '../../bindings/captain-api/models'
+
+const confirmDialog = ref(null)
+const collectionToDelete = ref(null)
+
+const confirmMessage = computed(() => {
+  if (collectionToDelete.value) {
+    return `Are you sure you want to delete the "${collectionToDelete.value.name}" header collection? This action cannot be undone.`
+  }
+  return 'Are you sure? This action cannot be undone.'
+})
 
 // Define props and emits
 const props = defineProps({
@@ -293,23 +313,26 @@ const saveHeaderCollection = async (collectionData) => {
 }
 
 // Delete header collection with confirmation
-const deleteHeaderCollection = async (headerCollectionId) => {
-  const collection = props.collection.headerCollections.find(c => c.id === headerCollectionId)
-  if (!collection) return
-  
-  // Show confirmation dialog
-  const confirmDelete = confirm(`Are you sure you want to delete the "${collection.name}" header collection? This action cannot be undone.`)
-  
-  if (confirmDelete) {
+const deleteHeaderCollection = (collection) => {
+  collectionToDelete.value = collection
+  confirmDialog.value.show()
+}
+
+const handleConfirmDelete = async () => {
+  if (collectionToDelete.value) {
     try {
-      await CollectionService.DeleteHeaderCollection(props.collection.id, headerCollectionId)
-      
-      // Remove from local array
-      props.collection.headerCollections = props.collection.headerCollections.filter(c => c.id !== headerCollectionId)
+      await CollectionService.DeleteHeaderCollection(props.collection.id, collectionToDelete.value.id)
+      EventBusService.EmitEvent('header-collection-updated')
     } catch (error) {
       console.error('Failed to delete header collection:', error)
+    } finally {
+      collectionToDelete.value = null
     }
   }
+}
+
+const handleCancelDelete = () => {
+  collectionToDelete.value = null
 }
 
 // Export header collection as JSON file
