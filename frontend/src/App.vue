@@ -3,15 +3,16 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
 import CollectionSidebar from './components/CollectionSidebar.vue'
+import Welcome from './components/Welcome.vue'
 import { Events } from '@wailsio/runtime'
 import { CollectionService } from '../bindings/captain-api'
 import { main } from '../bindings/captain-api/models'
 
 // Tabs management
 const tabs = ref([
-  { id: 'tab-1', name: 'New Request', active: true, request: null, response: null, requestId: null }
+  { id: 'welcome-tab', name: 'Welcome', active: true, isWelcome: true }
 ])
-const activeTabId = ref('tab-1')
+const activeTabId = ref('welcome-tab')
 const tabCounter = ref(2)
 
 // References
@@ -214,15 +215,21 @@ const addNewTab = (requestData = null, responseData = null, requestId = null) =>
     tabName = endpoint || `${requestData.method || 'GET'} Request`
   }
   
-  // Add new tab
-  tabs.value.push({
+  const newTab = {
     id: newTabId,
     name: tabName,
     active: true,
     request: requestData,
     response: responseData,
     requestId: requestId
-  })
+  }
+
+  // If the only tab is the welcome tab, replace it
+  if (tabs.value.length === 1 && tabs.value[0].isWelcome) {
+    tabs.value = [newTab]
+  } else {
+    tabs.value.push(newTab)
+  }
   
   // Set the new tab as active
   activeTabId.value = newTabId
@@ -261,10 +268,10 @@ const closeTab = (tabId, event) => {
   if (index !== -1) {
     // If closing the active tab
     if (tabId === activeTabId.value) {
-      // If it's the only tab, create a new one
+      // If it's the last request tab, replace it with the welcome tab
       if (tabs.value.length === 1) {
-        tabs.value.splice(index, 1)
-        addNewTab()
+        tabs.value = [{ id: 'welcome-tab', name: 'Welcome', active: true, isWelcome: true }]
+        activeTabId.value = 'welcome-tab'
         return
       }
       
@@ -327,27 +334,30 @@ const setRequestBuilderRef = (el, tabId) => {
               @click="switchTab(tab.id)"
             >
               <span class="tab-name">{{ tab.name }}</span>
-              <button class="tab-close" @click="closeTab(tab.id, $event)">&times;</button>
+              <button v-if="!tab.isWelcome" class="tab-close" @click="closeTab(tab.id, $event)">&times;</button>
             </div>
             <button class="new-tab-button" @click="handleNewRequest">+</button>
           </div>
           
-          <!-- Request Builders - One per tab, only show active one -->
-          <div v-for="tab in tabs" :key="`builder-${tab.id}`" v-show="tab.id === activeTabId" class="request-section">
-            <RequestBuilder
-              :ref="el => setRequestBuilderRef(el, tab.id)"
-              :collectionId="currentCollectionId"
-              :virtualHeaders="selectedHeaders"
-              @response-received="handleResponseReceived"
-              @request-updated="handleRequestUpdated"
-              @load-request="handleLoadRequest"
-            />
-          </div>
-          
-          <!-- Response Viewer - Shows active tab's response -->
-          <section class="response-section">
-            <ResponseViewer :response="activeResponse" />
-          </section>
+          <Welcome v-if="activeTab.isWelcome" @new-request="handleNewRequest" />
+          <template v-else>
+            <!-- Request Builders - One per tab, only show active one -->
+            <div v-for="tab in tabs" :key="`builder-${tab.id}`" v-show="tab.id === activeTabId" class="request-section">
+              <RequestBuilder
+                :ref="el => setRequestBuilderRef(el, tab.id)"
+                :collectionId="currentCollectionId"
+                :virtualHeaders="selectedHeaders"
+                @response-received="handleResponseReceived"
+                @request-updated="handleRequestUpdated"
+                @load-request="handleLoadRequest"
+              />
+            </div>
+            
+            <!-- Response Viewer - Shows active tab's response -->
+            <section class="response-section">
+              <ResponseViewer :response="activeResponse" />
+            </section>
+          </template>
         </div>
       </div>
     </main>
