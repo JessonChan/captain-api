@@ -53,7 +53,7 @@ Captain API is a free, open-source API testing tool designed to streamline the A
 
 2. **Clone the repository** (if not already done):
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/JessonChan/captain-api
    cd captain-api
    ```
 
