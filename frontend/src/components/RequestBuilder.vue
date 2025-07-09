@@ -207,6 +207,14 @@ watch(headersList, (newHeaders) => {
   emitRequestUpdate()
 }, { deep: true })
 
+watch(requestName, () => {
+  emitRequestUpdate()
+})
+
+watch(request, () => {
+  emitRequestUpdate()
+}, { deep: true })
+
 // Watch body type changes
 watch(bodyType, (newType) => {
   if (newType === 'json') {

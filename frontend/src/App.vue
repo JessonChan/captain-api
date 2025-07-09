@@ -58,6 +58,7 @@ onMounted(() => {
     const active = activeTab.value
     if (active && !active.requestId) {
       active.requestId = savedRequest.id
+      active.name = savedRequest.name
     }
   })
 })
