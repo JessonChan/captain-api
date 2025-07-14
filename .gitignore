@@ -97,3 +97,4 @@ frontend/bindings/time/*.js
 .vscode
 .idea
 .cursor
+ClAUDE.md
