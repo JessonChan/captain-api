@@ -30,7 +30,6 @@ func main() {
 	// 'Mac' options tailor the application when running an macOS.
 	// Create shared services
 	eventChannel := make(chan customEvent)
-	envService := NewEnvironmentService()
 	collectionService := NewCollectionService()
 	headerService := NewHeaderService()
 	busService := NewEventBusService(eventChannel)
@@ -40,9 +39,8 @@ func main() {
 		Description: "A demo of using raw HTML & CSS",
 		Services: []application.Service{
 			application.NewService(&GreetService{}),
-			application.NewService(NewHTTPServiceWithEnv(envService, collectionService)),
+			application.NewService(NewHTTPServiceWithCollection(collectionService)),
 			application.NewService(collectionService),
-			application.NewService(envService),
 			application.NewService(headerService),
 			application.NewService(busService),
 		},

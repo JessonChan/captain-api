@@ -351,7 +351,8 @@ const sendRequest = async () => {
       method: request.value.method,
       url: request.value.url,
       headers: combinedHeaders,
-      body: bodyContent
+      body: bodyContent,
+      collectionId: props.collectionId
     }
 
     const response = await HTTPService.SendRequest(requestToSend)

@@ -244,7 +244,7 @@
             >
               <div class="env-info">
                 <div class="env-name">{{ env.name }}</div>
-                <div class="env-url">{{ env.baseURL }}</div>
+                <div class="env-url">{{ env.baseUrl }}</div>
                 <div class="env-description">{{ env.description }}</div>
               </div>
               <div class="env-actions">
@@ -293,7 +293,7 @@
             <div class="form-group">
               <label>Base URL</label>
               <input 
-                v-model="envForm.baseURL" 
+                v-model="envForm.baseUrl" 
                 type="text" 
                 placeholder="https://api.example.com"
                 class="form-input"
@@ -397,7 +397,7 @@ const editingEnvironment = ref(null)
 const envForm = ref({
   id: '',
   name: '',
-  baseURL: '',
+  baseUrl: '',
   description: ''
 })
 
@@ -637,6 +637,7 @@ const openEnvironmentModal = async (collectionId) => {
   selectedCollectionId.value = collectionId
   try {
     const environments = await CollectionService.GetCollectionEnvironments(collectionId)
+    console.log("openEnvironmentModal",environments)
     currentEnvironments.value = environments
     showEnvironmentModal.value = true
   } catch (error) {
@@ -665,7 +666,7 @@ const editEnvironment = (env) => {
   envForm.value = {
     id: env.id,
     name: env.name,
-    baseURL: env.baseURL,
+    baseUrl: env.baseUrl,
     description: env.description
   }
   
@@ -676,7 +677,7 @@ const resetEnvForm = () => {
   envForm.value = {
     id: '',
     name: '',
-    baseURL: '',
+    baseUrl: '',
     description: ''
   }
 }
@@ -688,7 +689,7 @@ const cancelEnvForm = () => {
 }
 
 const saveEnvironment = async () => {
-  if (!envForm.value.name.trim() || !envForm.value.baseURL.trim()) {
+  if (!envForm.value.name.trim() || !envForm.value.baseUrl.trim()) {
     alert('Please fill in name and base URL')
     return
   }
@@ -697,7 +698,7 @@ const saveEnvironment = async () => {
     const envData = {
       id: envForm.value.id,
       name: envForm.value.name.trim(),
-      baseURL: envForm.value.baseURL.trim(),
+      baseUrl: envForm.value.baseUrl.trim(),
       description: envForm.value.description.trim(),
       isActive: false
     }

@@ -16,7 +16,6 @@ import (
 // HTTPService handles HTTP requests for the Postman-like client
 type HTTPService struct {
 	client            *http.Client
-	envService        *EnvironmentService
 	logService        *LogService
 	collectionService *CollectionService
 }
@@ -27,18 +26,17 @@ func NewHTTPService() *HTTPService {
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		envService: NewEnvironmentService(),
-		logService: NewLogService(),
+		logService:        NewLogService(),
+		collectionService: NewCollectionService(),
 	}
 }
 
-// NewHTTPServiceWithEnv creates a new HTTP service with a shared environment service
-func NewHTTPServiceWithEnv(envService *EnvironmentService, collectionService *CollectionService) *HTTPService {
+// NewHTTPServiceWithCollection creates a new HTTP service with a shared collection service
+func NewHTTPServiceWithCollection(collectionService *CollectionService) *HTTPService {
 	return &HTTPService{
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		envService:        envService,
 		logService:        NewLogService(),
 		collectionService: collectionService,
 	}
@@ -55,21 +53,22 @@ type HTTPRequest struct {
 
 // HTTPResponse represents an HTTP response structure
 type HTTPResponse struct {
-	StatusCode    int               `json:"statusCode"`
-	Status        string            `json:"status"`
-	Headers       map[string]string `json:"headers"`
+	StatusCode     int               `json:"statusCode"`
+	Status         string            `json:"status"`
+	Headers        map[string]string `json:"headers"`
 	RequestHeaders map[string]string `json:"requestHeaders"`
-	Body          string            `json:"body"`
-	Duration      int64             `json:"duration"` // in milliseconds
-	Size          int64             `json:"size"`     // response size in bytes
+	Body           string            `json:"body"`
+	Duration       int64             `json:"duration"` // in milliseconds
+	Size           int64             `json:"size"`     // response size in bytes
 }
 
 // SendRequest sends an HTTP request and returns the response
 func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (*HTTPResponse, error) {
 	start := time.Now()
 
-	// Resolve URL with environment base URL if needed
-	resolvedURL, err := h.resolveURL(ctx, req.URL)
+	// Resolve URL with collection environment base URL if needed
+	resolvedURL, err := h.resolveURL(ctx, req.URL, req.CollectionID)
+	fmt.Println("Resolved URL:", resolvedURL, req.CollectionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve URL: %w", err)
 	}
@@ -165,13 +164,13 @@ func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (*HTTPRe
 
 	// Create response object
 	response := &HTTPResponse{
-		StatusCode:    resp.StatusCode,
-		Status:        resp.Status,
-		Headers:       headers,
+		StatusCode:     resp.StatusCode,
+		Status:         resp.Status,
+		Headers:        headers,
 		RequestHeaders: reqHeaders,
-		Body:          string(bodyBytes),
-		Duration:      duration,
-		Size:          int64(len(bodyBytes)),
+		Body:           string(bodyBytes),
+		Duration:       duration,
+		Size:           int64(len(bodyBytes)),
 	}
 
 	// Log the request and response
@@ -202,18 +201,24 @@ func (h *HTTPService) GetSupportedMethods(ctx context.Context) []string {
 	return []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
 }
 
-// resolveURL resolves a URL using the active environment's base URL if needed
-func (h *HTTPService) resolveURL(ctx context.Context, url string) (string, error) {
+// resolveURL resolves a URL using the active environment's base URL from the collection if needed
+func (h *HTTPService) resolveURL(ctx context.Context, url string, collectionID string) (string, error) {
 	// If URL is already absolute, return it as is
 	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
 		return url, nil
 	}
 
-	// Get active environment
-	activeEnv, err := h.envService.GetActiveEnvironment(ctx)
-	if err != nil {
-		return "", err
+	// If no collection ID is provided, return the URL as-is (relative)
+	if collectionID == "" {
+		return url, nil
 	}
+
+	// Get active environment for the collection
+	activeEnv, err := h.collectionService.GetActiveCollectionEnvironment(ctx, collectionID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get active environment for collection %s: %w", collectionID, err)
+	}
+	fmt.Println("Active environment for collection", collectionID, "is", activeEnv, "with base URL", activeEnv.BaseURL)
 
 	// Ensure base URL doesn't end with a slash
 	baseURL := strings.TrimSuffix(activeEnv.BaseURL, "/")
