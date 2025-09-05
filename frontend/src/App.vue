@@ -64,6 +64,7 @@ onMounted(() => {
 })
 
 const handleCollectionSelected = (collectionId: string) => {
+  console.log('Collection selected:', collectionId)
   currentCollectionId.value = collectionId
   updateSelectedHeaders()
 }
@@ -99,6 +100,11 @@ const handleLoadRequest = (logData) => {
   const requestUrl = requestData.url || ''
   const method = requestData.method || 'GET'
   
+  // Update currentCollectionId if the request belongs to a different collection
+  if (requestData.collectionId && requestData.collectionId !== currentCollectionId.value) {
+    handleCollectionSelected(requestData.collectionId)
+  }
+  
   // Generate a meaningful tab name
   let tabName = ''
   if (requestData.name) {
@@ -133,7 +139,7 @@ const handleLoadRequest = (logData) => {
     // Update the request if needed (might have different headers, body, etc.)
     const existingTabBuilder = requestBuilderRefs.value[tabs.value[existingTabIndex].id]
     if (existingTabBuilder) {
-      existingTabBuilder.loadRequest(requestData)
+      existingTabBuilder.loadRequest(requestData, currentCollectionId.value)
       
       // If response data is available (e.g., from logs), set it
       if (logData.response) {
@@ -239,7 +245,7 @@ const addNewTab = (requestData = null, responseData = null, requestId = null) =>
   nextTick(() => {
     if (requestBuilderRefs.value[newTabId]) {
       if (requestData) {
-        requestBuilderRefs.value[newTabId].loadRequest(requestData)
+        requestBuilderRefs.value[newTabId].loadRequest(requestData, currentCollectionId.value)
       } else {
         requestBuilderRefs.value[newTabId].newRequest()
       }

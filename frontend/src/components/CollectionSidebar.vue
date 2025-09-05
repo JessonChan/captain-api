@@ -366,12 +366,6 @@ import { Events } from '@wailsio/runtime'
 import HeaderSettings from './HeaderSettings.vue'
 import { main } from '../../bindings/captain-api/models'
 
-const props = defineProps({
-  collectionId: {
-    type: String,
-    required: true
-  }
-})
 
 const emit = defineEmits(['load-request', 'new-request', 'header-collection-selected', 'collection-selected'])
 
@@ -418,12 +412,6 @@ const selectedCollection = computed(() => {
   return collections.value.find(c => c.id === selectedCollectionId.value)
 })
 
-watch(() => props.collectionId, (newCollectionId) => {
-  if (newCollectionId) {
-    selectedHeaderCollectionId.value = ''
-    emit('header-collection-selected', null)
-  }
-})
 
 onMounted(async () => {
   console.log('CollectionSidebar mounted, loading collections...')
@@ -544,7 +532,20 @@ const switchView = async (view) => {
 }
 
 const loadRequest = (request) => {
-  emit('load-request', request)
+  // Find which collection this request belongs to
+  let requestCollectionId = null
+  for (const collection of collections.value) {
+    if (collection.requests && collection.requests.some(r => r.id === request.id)) {
+      requestCollectionId = collection.id
+      break
+    }
+  }
+  
+  // Emit the request with collection ID
+  emit('load-request', {
+    ...request,
+    collectionId: requestCollectionId
+  })
 }
 
 const deleteRequest = (collectionId, requestId) => {

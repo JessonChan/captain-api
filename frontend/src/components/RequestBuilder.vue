@@ -134,6 +134,7 @@ const request = ref({
   headers: {},
   body: ''
 })
+const collectionId = ref(props.collectionId)
 
 const methods = ref(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'])
 const activeTab = ref('Headers')
@@ -352,7 +353,7 @@ const sendRequest = async () => {
       url: request.value.url,
       headers: combinedHeaders,
       body: bodyContent,
-      collectionId: props.collectionId
+      collectionId: collectionId.value || null
     }
 
     const response = await HTTPService.SendRequest(requestToSend)
@@ -396,7 +397,7 @@ async function cloneRequest() {
 
   try {
     loading.value = true;
-    const clonedRequest = await CollectionService.SaveRequest(props.collectionId, requestToSave);
+    const clonedRequest = await CollectionService.SaveRequest(collectionId.value || null, requestToSave);
     
     emit('load-request', clonedRequest);
     
@@ -433,7 +434,7 @@ async function saveRequest() {
     console.log('Saving request:', requestToSave)
     
     // Call the backend service to save the request
-    const savedRequest = await CollectionService.SaveRequest(props.collectionId, requestToSave)
+    const savedRequest = await CollectionService.SaveRequest(collectionId.value || null, requestToSave)
 
     console.log('Request saved successfully:', savedRequest)
     
@@ -492,7 +493,7 @@ async function updateRequest() {
   
   try {
     // First try to update the request
-    await CollectionService.UpdateRequest(props.collectionId, currentRequestId.value, requestToUpdate)
+    await CollectionService.UpdateRequest(collectionId.value || null, currentRequestId.value, requestToUpdate)
     console.log('Update successful, emitting request-saved event')
     // Notify parent components
     EventBusService.EmitEvent('request-saved')
@@ -538,8 +539,8 @@ const isDirty = computed(() => {
   return currentSnapshot !== originalRequestSnapshot.value
 })
 
-const loadRequest = (requestData) => {
-  console.log('Loading request data:', requestData)
+const loadRequest = (requestData, cid = null) => {
+  console.log('Loading request data:', requestData, 'Collection ID:', cid)
   
   // Store the original request data and create a snapshot
   originalRequest.value = { ...requestData }
@@ -551,6 +552,7 @@ const loadRequest = (requestData) => {
     headers: { ...(requestData.headers || {}) },
     body: requestData.body || ''
   }
+  collectionId.value = cid || null
   
   // Set the current request ID and name
   currentRequestId.value = requestData.id || ''
