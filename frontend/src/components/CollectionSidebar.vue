@@ -367,6 +367,10 @@ import HeaderSettings from './HeaderSettings.vue'
 import { main } from '../../bindings/captain-api/models'
 
 
+const props = defineProps<{
+  collectionId: string
+}>()
+
 const emit = defineEmits(['load-request', 'new-request', 'header-collection-selected', 'collection-selected'])
 
 const currentView = ref('collections')
