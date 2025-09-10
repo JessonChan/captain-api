@@ -5,6 +5,9 @@ import ResponseViewer from './components/ResponseViewer.vue'
 import CollectionSidebar from './components/CollectionSidebar.vue'
 import UnifiedManager from './components/UnifiedManager.vue'
 import Welcome from './components/Welcome.vue'
+import AlertDialog from './components/AlertDialog.vue'
+import ConfirmDialog from './components/ConfirmDialog.vue'
+import popupService from './components/popupService'
 import { Events } from '@wailsio/runtime'
 import { CollectionService } from '../bindings/captain-api'
 import { main } from '../bindings/captain-api/models'
@@ -19,6 +22,8 @@ const tabCounter = ref(2)
 // References
 const requestBuilderRefs = ref({})
 const collectionSidebarRef = ref(null)
+const alertDialog = ref(null)
+const confirmDialog = ref(null)
 const collections = ref<main.Collection[]>([])
 const currentCollectionId = ref(null)
 
@@ -55,6 +60,9 @@ const updateSelectedHeaders = () => {
 }
 
 onMounted(() => {
+  // Initialize popup service with dialog references
+  popupService.setDialogRefs(alertDialog.value, confirmDialog.value)
+  
   loadCollections()
   Events.On('header-collection-updated', loadCollections)
   Events.On('collections-updated', loadCollections)
@@ -398,6 +406,10 @@ const handleManagerUpdated = () => {
       @close="closeUnifiedManager" 
       @updated="handleManagerUpdated"
     />
+    
+    <!-- Global Dialog Components -->
+    <AlertDialog ref="alertDialog" />
+    <ConfirmDialog ref="confirmDialog" />
   </div>
 </template>
 

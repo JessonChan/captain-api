@@ -2,24 +2,52 @@ import { ref } from 'vue'
 
 // Simple popup service that works with existing modals
 class PopupService {
+  private alertDialog: any = null
+  private confirmDialog: any = null
+
+  // Set dialog references (called from App.vue)
+  setDialogRefs(alertDialog: any, confirmDialog: any) {
+    this.alertDialog = alertDialog
+    this.confirmDialog = confirmDialog
+  }
+
   // Show alert dialog
   async alert(message: string, config: any = {}): Promise<void> {
     return new Promise((resolve) => {
-      // Use browser alert as fallback for now
-      // In a real implementation, this would use a proper modal system
-      console.log(`Alert: ${message}`, config)
-      alert(message)
-      resolve()
+      if (this.alertDialog) {
+        this.alertDialog.show(
+          config.title || 'Alert',
+          message,
+          config.details || '',
+          config.closeText || 'OK',
+          config.severity || 'info',
+          resolve
+        )
+      } else {
+        // Fallback to console if dialog not available
+        console.log(`Alert: ${message}`, config)
+        resolve()
+      }
     })
   }
 
   // Show confirm dialog
   async confirm(message: string, config: any = {}): Promise<boolean> {
     return new Promise((resolve) => {
-      // Use browser confirm as fallback for now
-      console.log(`Confirm: ${message}`, config)
-      const result = confirm(message)
-      resolve(result)
+      if (this.confirmDialog) {
+        this.confirmDialog.show(
+          config.title || 'Confirm Action',
+          message,
+          config.confirmText || 'Confirm',
+          config.cancelText || 'Cancel',
+          (result: boolean) => resolve(result),
+          () => resolve(false)
+        )
+      } else {
+        // Fallback to console if dialog not available
+        console.log(`Confirm: ${message}`, config)
+        resolve(false)
+      }
     })
   }
 
