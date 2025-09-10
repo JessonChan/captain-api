@@ -93,6 +93,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { CollectionService, EventBusService } from '../../bindings/captain-api'
 import HeaderCollectionForm from './HeaderCollectionForm.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
+import popupService from './popupService'
 import { main } from '../../bindings/captain-api/models'
 
 const confirmDialog = ref(null)
@@ -227,7 +228,9 @@ const cancelEdit = () => {
 const validateForm = () => {
   // Check if name is provided
   if (!formData.value.name.trim()) {
-    alert('Please provide a collection name')
+    await popupService.alert('Please provide a collection name', {
+      severity: 'warning'
+    })
     return false
   }
   
@@ -237,7 +240,9 @@ const validateForm = () => {
   const uniqueKeys = new Set(headerKeys)
   
   if (headerKeys.length !== uniqueKeys.size) {
-    alert('Duplicate header names found. Each header name must be unique.')
+    await popupService.alert('Duplicate header names found. Each header name must be unique.', {
+      severity: 'warning'
+    })
     return false
   }
   
@@ -247,7 +252,9 @@ const validateForm = () => {
   )
   
   if (incompleteHeaders.length > 0) {
-    alert('Some headers are incomplete. Please provide both name and value for each header.')
+    await popupService.alert('Some headers are incomplete. Please provide both name and value for each header.', {
+      severity: 'warning'
+    })
     return false
   }
   
@@ -363,7 +370,9 @@ const exportHeaderCollection = (collection) => {
     }, 100)
   } catch (error) {
     console.error('Failed to export header collection:', error)
-    alert('Failed to export header collection')
+    await popupService.alert('Failed to export header collection', {
+      severity: 'error'
+    })
   }
 }
 
@@ -406,10 +415,14 @@ const importHeaderCollection = (event) => {
       props.collection.headerCollections.push(newCollection)
       
       // Show success message
-      alert(`Successfully imported "${newCollection.name}" collection`)
+      await popupService.alert(`Successfully imported "${newCollection.name}" collection`, {
+        severity: 'success'
+      })
     } catch (error) {
       console.error('Failed to import header collection:', error)
-      alert('Failed to import header collection: Invalid format')
+      await popupService.alert('Failed to import header collection: Invalid format', {
+        severity: 'error'
+      })
     }
     
     // Reset file input
@@ -417,7 +430,9 @@ const importHeaderCollection = (event) => {
   }
   
   reader.onerror = () => {
-    alert('Error reading file')
+    popupService.alert('Error reading file', {
+      severity: 'error'
+    })
     event.target.value = ''
   }
   

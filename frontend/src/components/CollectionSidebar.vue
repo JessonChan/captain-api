@@ -157,13 +157,9 @@
       :style="{ top: menuPosition.y + 'px', left: menuPosition.x + 'px' }"
       @click.stop
     >
-      <div class="menu-item" @click="openEnvironmentModal(selectedCollectionId)">
+      <div class="menu-item" @click="openUnifiedManager(selectedCollectionId)">
         <span class="menu-icon">⚙️</span>
-        Manage Environments
-      </div>
-      <div class="menu-item" @click="openHeaderSettingsModal(selectedCollectionId)">
-        <span class="menu-icon">📋</span>
-        Manage Headers
+        Manage Settings
       </div>
       <div class="menu-divider"></div>
       <div class="menu-item" @click="renameCollection(selectedCollectionId)">
@@ -227,111 +223,9 @@
       </div>
     </div>
     
-    <!-- Environment Management Modal -->
-    <div v-if="showEnvironmentModal" class="modal-overlay" @click="closeEnvironmentModal">
-      <div class="modal environment-modal" @click.stop>
-        <div class="modal-header">
-          <h4>Manage Environments - {{ getCollectionName(selectedCollectionId) }}</h4>
-          <button @click="closeEnvironmentModal" class="close-btn">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="environments-list">
-            <div 
-              v-for="env in currentEnvironments"
-              :key="env.id"
-              class="environment-item"
-              :class="{ active: env.isActive }"
-            >
-              <div class="env-info">
-                <div class="env-name">{{ env.name }}</div>
-                <div class="env-url">{{ env.baseUrl }}</div>
-                <div class="env-description">{{ env.description }}</div>
-              </div>
-              <div class="env-actions">
-                <button 
-                  v-if="!env.isActive"
-                  @click="activateEnvironment(env.id)"
-                  class="activate-btn"
-                >
-                  Activate
-                </button>
-                <button 
-                  @click="editEnvironment(env)"
-                  class="edit-btn"
-                >
-                  Edit
-                </button>
-                <button 
-                  v-if="currentEnvironments.length > 1"
-                  @click="deleteEnvironment(env.id)"
-                  class="delete-env-btn"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          <div class="add-environment">
-            <button @click="showAddEnvironmentForm" class="add-env-btn">
-              + Add Environment
-            </button>
-          </div>
-          
-          <!-- Add/Edit Environment Form -->
-          <div v-if="showEnvForm" class="env-form">
-            <h5>{{ editingEnvironment ? 'Edit' : 'Add' }} Environment</h5>
-            <div class="form-group">
-              <label>Name</label>
-              <input 
-                v-model="envForm.name" 
-                type="text" 
-                placeholder="Environment name"
-                class="form-input"
-              />
-            </div>
-            <div class="form-group">
-              <label>Base URL</label>
-              <input 
-                v-model="envForm.baseUrl" 
-                type="text" 
-                placeholder="https://api.example.com"
-                class="form-input"
-              />
-            </div>
-            <div class="form-group">
-              <label>Description</label>
-              <input 
-                v-model="envForm.description" 
-                type="text" 
-                placeholder="Environment description"
-                class="form-input"
-              />
-            </div>
-            
-            <div class="form-actions">
-              <button @click="cancelEnvForm" class="cancel-btn">Cancel</button>
-              <button @click="saveEnvironment" class="save-btn">Save</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
     
-    <!-- Confirm Dialog -->
-    <ConfirmDialog
-      ref="confirmDialog"
-      title="Delete Request"
-      message="Are you sure you want to delete this request? This action cannot be undone."
-      confirm-text="Delete"
-      cancel-text="Cancel"
-      @confirm="confirmDelete"
-      @cancel="cancelDelete"
-    />
-    
-    <!-- Header Settings Modal -->
-    <HeaderSettings v-if="selectedCollection" :show="showHeaderSettingsModal" :collection="selectedCollection" @close="closeHeaderSettingsModal" />
-    
+        
+      
     <!-- Fixed Add Collection Button at Bottom -->
     <div class="sidebar-footer" v-if="currentView === 'collections'">
       <button 
@@ -345,25 +239,15 @@
     </div>
   </div>
   
-  <!-- Confirm Dialog -->
-  <ConfirmDialog
-    ref="confirmDialog"
-    title="Delete Request"
-    message="Are you sure you want to delete this request? This action cannot be undone."
-    confirm-text="Delete"
-    cancel-text="Cancel"
-    @confirm="confirmDelete"
-    @cancel="cancelDelete"
-  />
-</template>
+  </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { CollectionService } from '../../bindings/captain-api'
-import ConfirmDialog from './ConfirmDialog.vue'
 import RequestLogs from './RequestLogs.vue'
 import { Events } from '@wailsio/runtime'
-import HeaderSettings from './HeaderSettings.vue'
+import UnifiedManager from './UnifiedManager.vue'
+import popupService from './popupService'
 import { main } from '../../bindings/captain-api/models'
 
 
@@ -371,7 +255,7 @@ const props = defineProps<{
   collectionId: string
 }>()
 
-const emit = defineEmits(['load-request', 'new-request', 'header-collection-selected', 'collection-selected'])
+const emit = defineEmits(['load-request', 'new-request', 'header-collection-selected', 'collection-selected', 'open-unified-manager'])
 
 const currentView = ref('collections')
 const collections = ref<main.Collection[]>([])
@@ -403,7 +287,6 @@ const envForm = ref({
 const showCollectionMenu = ref(false)
 const menuPosition = ref({ x: 0, y: 0 })
 
-const confirmDialog = ref(null)
 const requestLogsRef = ref(null)
 let pendingDeleteRequest = null
 // Track event subscriptions
@@ -552,11 +435,12 @@ const loadRequest = (request) => {
   })
 }
 
-const deleteRequest = (collectionId, requestId) => {
-  // Store the pending delete request
-  pendingDeleteRequest = { collectionId, requestId }
-  // Show the confirmation dialog
-  confirmDialog.value.show()
+const deleteRequest = async (collectionId, requestId) => {
+  const confirmed = await popupService.confirm('Are you sure you want to delete this request? This action cannot be undone.')
+  if (confirmed) {
+    pendingDeleteRequest = { collectionId, requestId }
+    confirmDelete()
+  }
 }
 
 const confirmDelete = async () => {
@@ -567,7 +451,9 @@ const confirmDelete = async () => {
       console.log('Request deleted successfully')
     } catch (error) {
       console.error('Failed to delete request:', error)
-      alert('Failed to delete request')
+      await popupService.alert('Failed to delete request', {
+        severity: 'error'
+      })
     } finally {
       pendingDeleteRequest = null
     }
@@ -578,7 +464,9 @@ const confirmDelete = async () => {
       console.log('Collection deleted successfully')
     } catch (error) {
       console.error('Failed to delete collection:', error)
-      alert('Failed to delete collection')
+      await popupService.alert('Failed to delete collection', {
+        severity: 'error'
+      })
     } finally {
       pendingDeleteCollection = null
     }
@@ -591,7 +479,9 @@ const cancelDelete = () => {
 
 const createCollection = async () => {
   if (!newCollection.value.name.trim()) {
-    alert('Please enter a collection name')
+    await popupService.alert('Please enter a collection name', {
+      severity: 'warning'
+    })
     return
   }
   
@@ -604,7 +494,9 @@ const createCollection = async () => {
     closeModal()
   } catch (error) {
     console.error('Failed to create collection:', error)
-    alert('Failed to create collection')
+    await popupService.alert('Failed to create collection', {
+      severity: 'error'
+    })
   }
 }
 
@@ -634,7 +526,9 @@ const setActiveEnvironment = async (collectionId, envId) => {
     await loadCollections()
   } catch (error) {
     console.error('Failed to set active environment:', error)
-    alert('Failed to set active environment')
+    await popupService.alert('Failed to set active environment', {
+      severity: 'error'
+    })
   }
 }
 
@@ -647,7 +541,9 @@ const openEnvironmentModal = async (collectionId) => {
     showEnvironmentModal.value = true
   } catch (error) {
     console.error('Failed to load environments:', error)
-    alert('Failed to load environments')
+    await popupService.alert('Failed to load environments', {
+      severity: 'error'
+    })
   }
 }
 
@@ -695,7 +591,9 @@ const cancelEnvForm = () => {
 
 const saveEnvironment = async () => {
   if (!envForm.value.name.trim() || !envForm.value.baseUrl.trim()) {
-    alert('Please fill in name and base URL')
+    await popupService.alert('Please fill in name and base URL', {
+      severity: 'warning'
+    })
     return
   }
   
@@ -722,7 +620,9 @@ const saveEnvironment = async () => {
     cancelEnvForm()
   } catch (error) {
     console.error('Failed to save environment:', error)
-    alert('Failed to save environment')
+    await popupService.alert('Failed to save environment', {
+      severity: 'error'
+    })
   }
 }
 
@@ -734,19 +634,27 @@ const activateEnvironment = async (envId) => {
 }
 
 const deleteEnvironment = async (envId) => {
-  if (!confirm('Are you sure you want to delete this environment?')) {
-    return
-  }
+  const confirmed = await popupService.confirm(
+    'Are you sure you want to delete this environment?',
+    {
+      details: 'This action cannot be undone.',
+      title: 'Delete Environment'
+    }
+  )
   
-  try {
-    await CollectionService.DeleteCollectionEnvironment(selectedCollectionId.value, envId)
-    // Refresh environments
-    const environments = await CollectionService.GetCollectionEnvironments(selectedCollectionId.value)
-    currentEnvironments.value = environments
-    await loadCollections()
-  } catch (error) {
-    console.error('Failed to delete environment:', error)
-    alert('Failed to delete environment')
+  if (confirmed) {
+    try {
+      await CollectionService.DeleteCollectionEnvironment(selectedCollectionId.value, envId)
+      // Refresh environments
+      const environments = await CollectionService.GetCollectionEnvironments(selectedCollectionId.value)
+      currentEnvironments.value = environments
+      await loadCollections()
+    } catch (error) {
+      console.error('Failed to delete environment:', error)
+      await popupService.alert('Failed to delete environment', {
+        severity: 'error'
+      })
+    }
   }
 }
 
@@ -780,6 +688,12 @@ const closeHeaderSettingsModal = () => {
   selectedCollectionId.value = ''
 }
 
+// Unified manager methods - emit to parent
+const openUnifiedManager = (collectionId) => {
+  emit('open-unified-manager', collectionId)
+  showCollectionMenu.value = false
+}
+
 // Header manager function removed to simplify the application
 
 // Close menu when clicking outside
@@ -805,6 +719,7 @@ const renameCollection = async (collectionId) => {
   const collection = collections.value.find(c => c.id === collectionId)
   if (!collection) return
   
+  // Use a simple prompt for now since the custom form is complex
   const newName = prompt('Enter new collection name:', collection.name)
   if (newName && newName.trim() && newName.trim() !== collection.name) {
     try {
@@ -815,7 +730,9 @@ const renameCollection = async (collectionId) => {
       await loadCollections()
     } catch (error) {
       console.error('Failed to rename collection:', error)
-      alert('Failed to rename collection')
+      await popupService.alert('Failed to rename collection', {
+        severity: 'error'
+      })
     }
   }
   showCollectionMenu.value = false
@@ -833,7 +750,9 @@ const duplicateCollection = async (collectionId) => {
     await loadCollections()
   } catch (error) {
     console.error('Failed to duplicate collection:', error)
-    alert('Failed to duplicate collection')
+    await popupService.alert('Failed to duplicate collection', {
+      severity: 'error'
+    })
   }
   showCollectionMenu.value = false
 }
@@ -861,28 +780,30 @@ const exportCollection = async (collectionId) => {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+    
+    await popupService.alert(`Collection "${collection.name}" exported successfully`, {
+      severity: 'success'
+    })
   } catch (error) {
     console.error('Failed to export collection:', error)
-    alert('Failed to export collection')
+    await popupService.alert('Failed to export collection', {
+      severity: 'error'
+    })
   }
   showCollectionMenu.value = false
 }
 
 let pendingDeleteCollection = null
 
-const confirmDeleteCollection = (collectionId) => {
+const confirmDeleteCollection = async (collectionId) => {
   const collection = collections.value.find(c => c.id === collectionId)
   if (!collection) return
 
-  pendingDeleteCollection = { collectionId: collectionId }
-  confirmDialog.value.show(
-    'Delete Collection',
-    `Are you sure you want to delete "${collection.name}"? This will also delete all requests in this collection. This action cannot be undone.`,
-    'Delete',
-    'Cancel',
-    () => deleteCollection(collectionId),
-    () => { pendingDeleteCollection = null }
-  )
+  const confirmed = await popupService.confirm(`Are you sure you want to delete "${collection.name}"? This will also delete all requests in this collection. This action cannot be undone.`)
+  if (confirmed) {
+    pendingDeleteCollection = { collectionId: collectionId }
+    await deleteCollection(collectionId)
+  }
   showCollectionMenu.value = false
 }
 
@@ -892,7 +813,9 @@ const deleteCollection = async (collectionId) => {
     await loadCollections()
   } catch (error) {
     console.error('Failed to delete collection:', error)
-    alert('Failed to delete collection')
+    await popupService.alert('Failed to delete collection', {
+      severity: 'error'
+    })
   }
 }
 

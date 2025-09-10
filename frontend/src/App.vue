@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
 import CollectionSidebar from './components/CollectionSidebar.vue'
+import UnifiedManager from './components/UnifiedManager.vue'
 import Welcome from './components/Welcome.vue'
 import { Events } from '@wailsio/runtime'
 import { CollectionService } from '../bindings/captain-api'
@@ -20,6 +21,10 @@ const requestBuilderRefs = ref({})
 const collectionSidebarRef = ref(null)
 const collections = ref<main.Collection[]>([])
 const currentCollectionId = ref(null)
+
+// Unified Manager state
+const showUnifiedManager = ref(false)
+const unifiedManagerCollectionId = ref(null)
 
 // Computed properties
 const activeTab = computed(() => tabs.value.find(tab => tab.id === activeTabId.value))
@@ -298,6 +303,22 @@ const setRequestBuilderRef = (el, tabId) => {
     requestBuilderRefs.value[tabId] = el
   }
 }
+
+// Unified Manager methods
+const openUnifiedManager = (collectionId) => {
+  unifiedManagerCollectionId.value = collectionId
+  showUnifiedManager.value = true
+}
+
+const closeUnifiedManager = () => {
+  showUnifiedManager.value = false
+  unifiedManagerCollectionId.value = null
+}
+
+const handleManagerUpdated = () => {
+  loadCollections()
+  updateSelectedHeaders()
+}
 </script>
 
 <template>
@@ -326,6 +347,7 @@ const setRequestBuilderRef = (el, tabId) => {
             @new-request="handleNewRequest"
             @collection-selected="handleCollectionSelected"
             @header-collection-selected="handleHeaderCollectionSelected"
+            @open-unified-manager="openUnifiedManager"
           />
         </aside>
 
@@ -368,6 +390,14 @@ const setRequestBuilderRef = (el, tabId) => {
         </div>
       </div>
     </main>
+    
+    <!-- Unified Manager Modal -->
+    <UnifiedManager 
+      v-if="showUnifiedManager" 
+      :collection-id="unifiedManagerCollectionId" 
+      @close="closeUnifiedManager" 
+      @updated="handleManagerUpdated"
+    />
   </div>
 </template>
 

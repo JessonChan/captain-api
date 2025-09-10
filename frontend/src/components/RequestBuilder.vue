@@ -114,6 +114,7 @@
 import { ref, computed, watch } from 'vue'
 import { HTTPService, CollectionService, EventBusService } from '../../bindings/captain-api'
 import { Events } from '@wailsio/runtime'
+import popupService from './popupService'
 
 const props = defineProps({
   collectionId: {
@@ -326,7 +327,9 @@ const updateJSONValidation = (valid, message) => {
 // Send HTTP request
 const sendRequest = async () => {
   if (!request.value.url) {
-    alert('Please enter a URL')
+    popupService.alert('Please enter a URL', {
+      severity: 'warning'
+    })
     return
   }
 
@@ -334,7 +337,9 @@ const sendRequest = async () => {
   if (bodyType.value === 'json' && request.value.body.trim()) {
     const validation = validateJSON(request.value.body)
     if (!validation.valid) {
-      alert(`Invalid JSON format: ${validation.error}`)
+      popupService.alert(`Invalid JSON format: ${validation.error}`, {
+        severity: 'error'
+      })
       return
     }
   }
@@ -468,7 +473,9 @@ async function updateRequest() {
   }
   
   if (!requestName.value) {
-    alert('Request name is required.')
+    popupService.alert('Request name is required.', {
+      severity: 'warning'
+    })
     return
   }
 
