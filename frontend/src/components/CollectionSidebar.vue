@@ -72,7 +72,7 @@
               <label class="setting-label">Environment</label>
               <select 
                 :value="getActiveEnvironment(collection.id)?.id || ''"
-                @change="setActiveEnvironment(collection.id, $event.target.value)"
+                @change="handleEnvSelectChange(collection.id, $event)"
                 @click.stop
                 class="setting-select"
               >
@@ -92,7 +92,7 @@
               <label class="setting-label">Headers</label>
               <select 
                 :value="collection.activeHeaderCollectionId || ''"
-                @change="setActiveHeaderCollection(collection.id, $event.target.value)"
+                @change="handleHeaderSelectChange(collection.id, $event)"
                 @click.stop
                 class="setting-select"
               >
@@ -248,7 +248,7 @@ import RequestLogs from './RequestLogs.vue'
 import { Events } from '@wailsio/runtime'
 import UnifiedManager from './UnifiedManager.vue'
 import popupService from './popupService'
-import { main } from '../../bindings/captain-api/models'
+// Removed type import from generated models to avoid TS plugin errors
 
 
 const props = defineProps<{
@@ -258,7 +258,7 @@ const props = defineProps<{
 const emit = defineEmits(['load-request', 'new-request', 'header-collection-selected', 'collection-selected', 'open-unified-manager'])
 
 const currentView = ref('collections')
-const collections = ref<main.Collection[]>([])
+const collections = ref<any[]>([])
 const expandedCollections = ref(new Set(['default']))
 const showNewCollectionModal = ref(false)
 const newCollection = ref({
@@ -273,9 +273,10 @@ const selectedHeaderCollectionId = ref('')
 // Environment management
 const showEnvironmentModal = ref(false)
 const selectedCollectionId = ref('')
-const currentEnvironments = ref([])
+type CollectionEnvironment = { id: string; name: string; baseUrl: string; description?: string; isActive?: boolean }
+const currentEnvironments = ref<CollectionEnvironment[]>([])
 const showEnvForm = ref(false)
-const editingEnvironment = ref(null)
+const editingEnvironment = ref<CollectionEnvironment | null>(null)
 const envForm = ref({
   id: '',
   name: '',
@@ -287,10 +288,10 @@ const envForm = ref({
 const showCollectionMenu = ref(false)
 const menuPosition = ref({ x: 0, y: 0 })
 
-const requestLogsRef = ref(null)
-let pendingDeleteRequest = null
+const requestLogsRef = ref<any>(null)
+let pendingDeleteRequest: { collectionId: string; requestId: string } | null = null
 // Track event subscriptions
-const eventSubscriptions = []
+const eventSubscriptions: Array<() => void> = []
 
 
 const selectedRequestId = ref('')
@@ -308,7 +309,7 @@ onMounted(async () => {
   // Setup event listeners
   console.log('Setting up event listeners')
   
-  Events.On('request-saved', async () => {
+  const unsubRequestSaved = Events.On('request-saved', async () => {
     console.log('request-saved event received, reloading collections...')
     await loadCollections()
     
@@ -318,11 +319,13 @@ onMounted(async () => {
       // Events.Emit('collections-updated')
     }, 100)
   })
+  eventSubscriptions.push(unsubRequestSaved)
 
-  Events.On('header-collection-updated', (customEvent: CustomEvent) => {
-    console.log('header-collection-updated event received, reloading header collections...', customEvent)
+  const unsubHeaderUpdated = Events.On('header-collection-updated', (_ev: any) => {
+    console.log('header-collection-updated event received, reloading header collections...')
     loadCollections()
   })
+  eventSubscriptions.push(unsubHeaderUpdated)
   
   
   // Handle collections-updated event (in case another component updates collections)
@@ -330,6 +333,7 @@ onMounted(async () => {
     console.log('collections-updated event received, reloading collections...')
     await loadCollections()
   })
+  eventSubscriptions.push(collectionsUpdatedUnsubscribe)
 })
 
 // Clean up event listeners
@@ -410,11 +414,11 @@ const toggleCollection = (collectionId) => {
   }
 }
 
-const switchView = async (view) => {
+const switchView = async (view: string) => {
   currentView.value = view
   // Refresh logs when switching to logs view
   if (view === 'logs' && requestLogsRef.value) {
-    await requestLogsRef.value.loadLogs()
+    await (requestLogsRef.value as any).loadLogs()
   }
 }
 
@@ -435,7 +439,7 @@ const loadRequest = (request) => {
   })
 }
 
-const deleteRequest = async (collectionId, requestId) => {
+const deleteRequest = async (collectionId: string, requestId: string) => {
   const confirmed = await popupService.confirm('Are you sure you want to delete this request? This action cannot be undone.')
   if (confirmed) {
     pendingDeleteRequest = { collectionId, requestId }
@@ -509,7 +513,7 @@ const closeModal = () => {
 }
 
 // Environment management methods
-const getActiveEnvironment = (collectionId) => {
+const getActiveEnvironment = (collectionId: string) => {
   const collection = collections.value.find(c => c.id === collectionId)
   if (!collection || !collection.environments) return null
   return collection.environments.find(env => env.isActive)
@@ -520,7 +524,7 @@ const getCollectionName = (collectionId) => {
   return collection ? collection.name : ''
 }
 
-const setActiveEnvironment = async (collectionId, envId) => {
+const setActiveEnvironment = async (collectionId: string, envId: string) => {
   try {
     await CollectionService.SetActiveCollectionEnvironment(collectionId, envId)
     await loadCollections()
@@ -530,6 +534,19 @@ const setActiveEnvironment = async (collectionId, envId) => {
       severity: 'error'
     })
   }
+}
+
+// Safe change handlers to satisfy TS plugin
+const handleEnvSelectChange = (collectionId: string, event: Event) => {
+  const target = event.target as HTMLSelectElement | null
+  const envId = target?.value || ''
+  void setActiveEnvironment(collectionId, envId)
+}
+
+const handleHeaderSelectChange = (collectionId: string, event: Event) => {
+  const target = event.target as HTMLSelectElement | null
+  const headerId = target?.value || ''
+  void setActiveHeaderCollection(collectionId, headerId)
 }
 
 const openEnvironmentModal = async (collectionId) => {
@@ -793,7 +810,7 @@ const exportCollection = async (collectionId) => {
   showCollectionMenu.value = false
 }
 
-let pendingDeleteCollection = null
+let pendingDeleteCollection: { collectionId: string } | null = null
 
 const confirmDeleteCollection = async (collectionId) => {
   const collection = collections.value.find(c => c.id === collectionId)

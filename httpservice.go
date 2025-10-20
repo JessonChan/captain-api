@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
+	"net/textproto"
 	"strings"
 	"time"
 )
@@ -68,7 +69,6 @@ func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (*HTTPRe
 
 	// Resolve URL with collection environment base URL if needed
 	resolvedURL, err := h.resolveURL(ctx, req.URL, req.CollectionID)
-	fmt.Println("Resolved URL:", resolvedURL, req.CollectionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve URL: %w", err)
 	}
@@ -218,7 +218,6 @@ func (h *HTTPService) resolveURL(ctx context.Context, url string, collectionID s
 	if err != nil {
 		return "", fmt.Errorf("failed to get active environment for collection %s: %w", collectionID, err)
 	}
-	fmt.Println("Active environment for collection", collectionID, "is", activeEnv, "with base URL", activeEnv.BaseURL)
 
 	// Ensure base URL doesn't end with a slash
 	baseURL := strings.TrimSuffix(activeEnv.BaseURL, "/")
@@ -272,6 +271,29 @@ func (h *HTTPService) ExportRequestLogsAsJSON(ctx context.Context) (string, erro
 
 // mergeCollectionHeaders returns request headers as-is since environment headers are now managed separately
 func (h *HTTPService) mergeCollectionHeaders(ctx context.Context, collectionID string, requestHeaders map[string]string) (map[string]string, error) {
-	// Return original headers since environment headers are now managed separately
-	return requestHeaders, nil
+	// Start with a new map to avoid mutating the original
+	merged := make(map[string]string)
+
+	// Bring in active header collection (if any)
+	if h.collectionService != nil {
+		hc, err := h.collectionService.GetActiveHeaderCollection(ctx, collectionID)
+		if err != nil {
+			// Surface error to caller to optionally warn but not fail request
+			return nil, err
+		}
+		if hc != nil && hc.Headers != nil {
+			for k, v := range hc.Headers {
+				ck := textproto.CanonicalMIMEHeaderKey(k)
+				merged[ck] = v
+			}
+		}
+	}
+
+	// Overlay request-specific headers (take precedence)
+	for k, v := range requestHeaders {
+		ck := textproto.CanonicalMIMEHeaderKey(k)
+		merged[ck] = v
+	}
+
+	return merged, nil
 }

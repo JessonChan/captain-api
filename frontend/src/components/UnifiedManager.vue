@@ -165,14 +165,14 @@
   <!-- Popup Forms -->
   <EnvironmentFormPopup
     :is-visible="showEnvironmentForm"
-    :environment="editingEnvironment"
+    :environment="editingEnvironment ?? undefined"
     @submit="saveEnvironment"
     @close="cancelEnvironmentForm"
   />
   
   <HeaderCollectionFormPopup
     :is-visible="showHeaderForm"
-    :header-collection="editingHeaderCollection"
+    :header-collection="editingHeaderCollection ?? undefined"
     @submit="saveHeaderCollection"
     @close="cancelHeaderForm"
   />
@@ -186,7 +186,42 @@ import { EventBusService } from '../../bindings/captain-api'
 import popupService from './popupService'
 import EnvironmentFormPopup from './EnvironmentFormPopup.vue'
 import HeaderCollectionFormPopup from './HeaderCollectionFormPopup.vue'
-import { main } from '../../bindings/captain-api/models'
+import { HeaderCollection as ModelHeaderCollection } from '../../bindings/captain-api/models'
+
+// Local lightweight types to avoid depending on generated model types at build time
+type CollectionEnvironment = {
+  id: string
+  name: string
+  baseUrl: string
+  description?: string
+  isActive: boolean
+}
+
+type HeaderCollection = {
+  id: string
+  name: string
+  description?: string
+  headers: Record<string, string>
+  createdAt?: any
+  updatedAt?: any
+}
+
+type RequestItem = {
+  id: string
+  name: string
+  method: string
+  url: string
+}
+
+type Collection = {
+  id: string
+  name: string
+  description?: string
+  environments: CollectionEnvironment[]
+  headerCollections: HeaderCollection[]
+  activeHeaderCollectionId?: string
+  requests: RequestItem[]
+}
 
 // Props
 const props = defineProps({
@@ -201,19 +236,19 @@ const emit = defineEmits(['close', 'updated'])
 
 // State
 const activeTab = ref('environments')
-const environments = ref([])
-const headerCollections = ref([])
-const collection = ref(null)
+const environments = ref<CollectionEnvironment[]>([])
+const headerCollections = ref<HeaderCollection[]>([])
+const collection = ref<Collection | null>(null)
 
 // Form states
 const showEnvironmentForm = ref(false)
 const showHeaderForm = ref(false)
-const editingEnvironment = ref(null)
-const editingHeaderCollection = ref(null)
+const editingEnvironment = ref<CollectionEnvironment | null>(null)
+const editingHeaderCollection = ref<HeaderCollection | null>(null)
 
 
 // File input ref
-const fileInput = ref(null)
+const fileInput = ref<HTMLInputElement | null>(null)
 
 // Tabs configuration
 const tabs = [
@@ -226,15 +261,15 @@ const loadCollectionData = async () => {
   try {
     // Load collection
     const allCollections = await CollectionService.GetAllCollections()
-    collection.value = allCollections.find(c => c.id === props.collectionId)
+    collection.value = (allCollections as any[]).find((c: any) => c.id === props.collectionId) as Collection | null
     
     if (collection.value) {
       // Load environments
       const envs = await CollectionService.GetCollectionEnvironments(props.collectionId)
-      environments.value = envs || []
+      environments.value = (envs as any[]) as CollectionEnvironment[]
       
       // Load header collections
-      headerCollections.value = collection.value.headerCollections || []
+      headerCollections.value = (collection.value.headerCollections || []) as HeaderCollection[]
     }
   } catch (error) {
     console.error('Failed to load collection data:', error)
@@ -311,11 +346,11 @@ const cancelEnvironmentForm = () => {
 }
 
 // Header collection management
-const isActiveHeaderCollection = (collectionId) => {
+const isActiveHeaderCollection = (collectionId: string) => {
   return collection.value?.activeHeaderCollectionId === collectionId
 }
 
-const setActiveHeaderCollection = async (collectionId) => {
+const setActiveHeaderCollection = async (collectionId: string) => {
   try {
     await CollectionService.SetActiveHeaderCollection(props.collectionId, collectionId)
     await loadCollectionData()
@@ -328,28 +363,33 @@ const setActiveHeaderCollection = async (collectionId) => {
   }
 }
 
-const editHeaderCollection = (collection) => {
+const editHeaderCollection = (collection: HeaderCollection) => {
   editingHeaderCollection.value = collection
   showHeaderForm.value = true
 }
 
-const saveHeaderCollection = async (collectionData) => {
+const saveHeaderCollection = async (collectionData: HeaderCollection & { headers: { key?: string; value?: string }[] }) => {
   try {
     // Convert headers array to object
     const headersObject = {}
-    collectionData.headers.forEach(header => {
-      headersObject[header.key] = header.value
+    ;(collectionData.headers as any[]).forEach((header: any) => {
+      if (header.key) headersObject[header.key] = header.value
     })
 
-    const finalData = {
-      ...collectionData,
-      headers: headersObject
-    }
+    const payload = ModelHeaderCollection.createFrom({
+      id: collectionData.id || `header_col_${Date.now()}`,
+      collectionId: props.collectionId,
+      name: collectionData.name,
+      description: (collectionData.description || '').toString(),
+      headers: headersObject,
+      createdAt: editingHeaderCollection.value?.createdAt ?? null,
+      updatedAt: new Date().toISOString()
+    })
 
     if (editingHeaderCollection.value) {
-      await CollectionService.UpdateHeaderCollection(props.collectionId, finalData)
+      await CollectionService.UpdateHeaderCollection(props.collectionId, payload)
     } else {
-      await CollectionService.CreateHeaderCollection(props.collectionId, finalData)
+      await CollectionService.CreateHeaderCollection(props.collectionId, payload)
     }
 
     await loadCollectionData()
@@ -363,7 +403,7 @@ const saveHeaderCollection = async (collectionData) => {
   }
 }
 
-const deleteHeaderCollection = async (collection) => {
+const deleteHeaderCollection = async (collection: HeaderCollection) => {
   try {
     const confirmed = await popupService.confirm(
       `Are you sure you want to delete the "${collection.name}" header collection?`,
@@ -386,7 +426,7 @@ const deleteHeaderCollection = async (collection) => {
   }
 }
 
-const exportHeaderCollection = async (collection) => {
+const exportHeaderCollection = async (collection: HeaderCollection) => {
   try {
     const jsonData = JSON.stringify(collection, null, 2)
     const blob = new Blob([jsonData], { type: 'application/json' })
@@ -413,40 +453,45 @@ const exportHeaderCollection = async (collection) => {
 }
 
 const triggerImport = () => {
-  fileInput.value.click()
+  fileInput.value?.click()
 }
 
-const importHeaderCollection = async (event) => {
-  const file = event.target.files[0]
+const importHeaderCollection = async (event: Event) => {
+  const target = event.target as HTMLInputElement | null
+  const file = target?.files?.[0]
   if (!file) return
   
   const reader = new FileReader()
   reader.onload = async (e) => {
     try {
-      const importedData = JSON.parse(e.target.result)
+      const result = e.target ? (e.target as FileReader).result : null
+      const importedData = JSON.parse((result as string) || '{}')
       
       if (!importedData.name || !importedData.headers) {
         throw new Error('Invalid header collection format')
       }
       
-      const newCollection = {
+      const payload = ModelHeaderCollection.createFrom({
         id: 'header_col_' + Date.now(),
+        collectionId: props.collectionId,
         name: importedData.name,
-        description: importedData.description || '',
-        headers: importedData.headers
-      }
+        description: (importedData.description || '').toString(),
+        headers: importedData.headers,
+        createdAt: null,
+        updatedAt: new Date().toISOString()
+      })
       
       // Check for duplicate name
-      const existingNames = headerCollections.value.map(c => c.name.toLowerCase())
-      if (existingNames.includes(newCollection.name.toLowerCase())) {
-        newCollection.name += ' (Imported)'
+      const existingNames = headerCollections.value.map(c => (c.name || '').toLowerCase())
+      if (existingNames.includes((payload.name || '').toLowerCase())) {
+        payload.name = `${payload.name} (Imported)`
       }
       
-      await CollectionService.CreateHeaderCollection(props.collectionId, newCollection)
+      await CollectionService.CreateHeaderCollection(props.collectionId, payload)
       await loadCollectionData()
       emit('updated')
       
-      await popupService.alert(`Successfully imported "${newCollection.name}" collection`, {
+      await popupService.alert(`Successfully imported "${payload.name}" collection`, {
         severity: 'success'
       })
     } catch (error) {
@@ -456,14 +501,14 @@ const importHeaderCollection = async (event) => {
       })
     }
     
-    event.target.value = ''
+    if (target) target.value = ''
   }
   
   reader.onerror = () => {
     popupService.alert('Error reading file', {
       severity: 'error'
     })
-    event.target.value = ''
+    if (target) target.value = ''
   }
   
   reader.readAsText(file)

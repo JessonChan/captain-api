@@ -325,6 +325,26 @@ func (c *CollectionService) GetActiveCollectionEnvironment(ctx context.Context, 
 	return nil, fmt.Errorf("no active environment found for collection %s", collectionID)
 }
 
+// GetActiveHeaderCollection returns the active header collection for the given collection, if any
+func (c *CollectionService) GetActiveHeaderCollection(ctx context.Context, collectionID string) (*HeaderCollection, error) {
+	collection, err := c.GetCollection(ctx, collectionID)
+	if err != nil {
+		return nil, err
+	}
+
+	if collection.ActiveHeaderCollectionID == "" {
+		return nil, nil
+	}
+
+	for _, hc := range collection.HeaderCollections {
+		if hc.ID == collection.ActiveHeaderCollectionID {
+			return &hc, nil
+		}
+	}
+
+	return nil, fmt.Errorf("active header collection %s not found in collection %s", collection.ActiveHeaderCollectionID, collectionID)
+}
+
 // SetActiveCollectionEnvironment sets the active environment for a collection
 func (c *CollectionService) SetActiveCollectionEnvironment(ctx context.Context, collectionID, envID string) error {
 	collection, err := c.GetCollection(ctx, collectionID)
